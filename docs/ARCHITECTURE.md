@@ -315,7 +315,7 @@ OPENAI_MODEL="gpt-5.4-mini"
 
 `OPENAI_API_KEY` is required only when executing runs with `provider = openai`. Local tests use the `stub` provider or mocked OpenAI client paths and should not call the real OpenAI API.
 
-Frontend local development uses `http://localhost:5173` by default. The backend allows this origin through `CORS_ORIGIN`; set a comma-separated `CORS_ORIGIN` value when using another Vite port or host.
+Frontend local development may use `http://localhost:5173` or `http://127.0.0.1:5173`. The backend allows both origins by default; set a comma-separated `CORS_ORIGIN` value when using another Vite port or host.
 
 Frontend runtime configuration:
 

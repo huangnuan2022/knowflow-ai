@@ -1,4 +1,5 @@
 import { Test } from '@nestjs/testing';
+import { parseCorsOrigin } from '../src/app.configure';
 import { AppModule } from '../src/app.module';
 
 describe('AppModule', () => {
@@ -9,5 +10,9 @@ describe('AppModule', () => {
 
     expect(moduleRef).toBeDefined();
     await moduleRef.close();
+  });
+
+  it('allows both localhost aliases for the Vite dev server by default', () => {
+    expect(parseCorsOrigin()).toEqual(['http://localhost:5173', 'http://127.0.0.1:5173']);
   });
 });
