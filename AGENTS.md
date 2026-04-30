@@ -45,7 +45,7 @@ Do not rewrite docs unnecessarily. If no documentation update is needed, explici
 - Keep changes focused and scoped to the requested task.
 - For multi-step work, state the recommended git grouping and commit message for each step.
 - Commit completed implementation/documentation work by default unless the user asks not to commit.
-- Do not push unless explicitly asked.
+- Push completed commits by default unless the user asks not to push.
 - Before suggesting a commit, run the relevant checks.
 - Summarize modified files and test results.
 
