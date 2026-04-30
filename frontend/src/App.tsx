@@ -157,13 +157,39 @@ function KnowFlowCanvas() {
 
       const completedPositionChanges = persistentChanges.filter(isCompletedPositionChange);
 
+      if (completedPositionChanges.length > 0) {
+        setBundle((currentBundle) =>
+          currentBundle
+            ? completedPositionChanges.reduce(
+                (nextBundle, change) =>
+                  mergeNodeLayoutIntoBundle(nextBundle, change.id, {
+                    x: change.position.x,
+                    y: change.position.y,
+                  }),
+                currentBundle,
+              )
+            : currentBundle,
+        );
+      }
+
       for (const change of completedPositionChanges) {
         void updateNodeLayout(change.id, {
           x: change.position!.x,
           y: change.position!.y,
-        }).catch((saveError) => {
-          setError(saveError instanceof Error ? saveError.message : 'Unable to save node position');
-        });
+        })
+          .then((updatedNode) => {
+            setBundle((currentBundle) =>
+              currentBundle
+                ? {
+                    ...currentBundle,
+                    nodes: currentBundle.nodes.map((node) => (node.id === change.id ? updatedNode : node)),
+                  }
+                : currentBundle,
+            );
+          })
+          .catch((saveError) => {
+            setError(saveError instanceof Error ? saveError.message : 'Unable to save node position');
+          });
       }
     },
     [deleteNodesByIds, setNodes],
@@ -523,5 +549,22 @@ function newNodePositionFromViewport(
   return {
     x: center.x - 280,
     y: center.y - 260,
+  };
+}
+
+function mergeNodeLayoutIntoBundle(bundle: GraphBundle, nodeId: string, layout: NodeLayout): GraphBundle {
+  return {
+    ...bundle,
+    nodes: bundle.nodes.map((node) =>
+      node.id === nodeId
+        ? {
+            ...node,
+            layout: {
+              ...(node.layout ?? {}),
+              ...layout,
+            },
+          }
+        : node,
+    ),
   };
 }
