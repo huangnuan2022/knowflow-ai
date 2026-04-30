@@ -84,10 +84,10 @@ Current Phase 1 routes:
 | Branches | `POST /api/branches/from-selection` | Transactional command for the core branch workflow. |
 | Messages | `POST /api/messages`, `GET /api/messages?nodeId=...`, `GET /api/messages/:id`, `DELETE /api/messages/:id` | Messages are immutable in v0; no update route. |
 | Highlights | `POST /api/highlights`, `GET /api/highlights?messageId=...`, `GET /api/highlights/:id`, `DELETE /api/highlights/:id` | Highlights are anchored selections; no update route. |
-| Runs | `POST /api/runs`, `GET /api/runs?nodeId=...&status=...`, `GET /api/runs/:id`, `PATCH /api/runs/:id`, `DELETE /api/runs/:id` | Run records only; no AI provider call yet. |
+| Runs | `POST /api/runs`, `POST /api/runs/:id/execute`, `GET /api/runs?nodeId=...&status=...`, `GET /api/runs/:id`, `PATCH /api/runs/:id`, `DELETE /api/runs/:id` | Run records and non-streaming execution through the provider-neutral adapter boundary. |
 | ContextSnapshots | `POST /api/context-snapshots`, `GET /api/context-snapshots?runId=...`, `GET /api/context-snapshots/:id`, `DELETE /api/context-snapshots/:id` | Stores references and metadata, not rendered prompts by default. |
 
-`POST /api/branches/from-selection` creates the branch operation as one backend transaction rather than a client sequence of separate CRUD calls. It creates the Highlight, child conversation Node, branch Edge, placeholder Run, and ContextSnapshot together.
+`POST /api/branches/from-selection` creates the branch operation as one backend transaction rather than a client sequence of separate CRUD calls. It creates the Highlight, child conversation Node, branch Edge, stub-backed pending Run, and ContextSnapshot together.
 
 ## Database Direction
 
@@ -171,6 +171,8 @@ Each run should preserve:
 - token estimate or usage when available.
 
 Use a provider-neutral AI adapter from day one. Domain run logic should depend on an internal adapter interface, not on one provider SDK's request or response shape.
+
+Phase 1 includes a deterministic local `stub` provider so run lifecycle behavior can be tested without connecting to a real model. The stub provider is not a product AI integration and should be replaced by a real adapter after the context builder and provider choice are confirmed.
 
 Future async path:
 

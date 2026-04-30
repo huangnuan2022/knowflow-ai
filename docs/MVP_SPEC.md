@@ -25,12 +25,14 @@ Implemented in Phase 1:
 - Integration test that creates User, Project, Graph, Node, Message, Highlight, Edge, Run, and ContextSnapshot through HTTP API boundaries.
 - Transactional branch-from-selection backend command.
 - Integration tests for branch-from-selection success and invalid-selection failure without partial branch records.
+- Provider-neutral AI adapter interface with a local deterministic `stub` provider.
+- Non-streaming run execution endpoint backed by durable Run status transitions.
 
 Not implemented in Phase 1:
 
 - Frontend canvas.
-- AI provider adapter implementation.
-- Context builder implementation.
+- Real AI provider integration.
+- Full context builder implementation.
 - Export/import.
 
 ### Included Features
