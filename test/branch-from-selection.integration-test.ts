@@ -93,7 +93,7 @@ describe('Branch from selection command', () => {
       contextSnapshot: RecordWithId & { selectedTextSnapshot: string };
       edge: RecordWithId & { sourceHighlightId: string; targetNodeId: string; type: EdgeType };
       highlight: RecordWithId & { selectedTextSnapshot: string };
-      run: RecordWithId & { nodeId: string; status: RunStatus };
+      run: RecordWithId & { model: string; nodeId: string; provider: string; status: RunStatus };
     }>(baseUrl, '/branches/from-selection', {
       body: JSON.stringify({
         childNode: {
@@ -125,7 +125,9 @@ describe('Branch from selection command', () => {
       type: EdgeType.BRANCH,
     });
     expect(branch.run).toMatchObject({
+      model: 'stub-v1',
       nodeId: branch.childNode.id,
+      provider: 'stub',
       status: RunStatus.PENDING,
     });
     expect(branch.contextSnapshot).toMatchObject({ selectedTextSnapshot });

@@ -61,10 +61,10 @@ export class BranchesService {
       const run = await tx.run.create({
         data: {
           contextPolicyVersion: createBranchDto.context.contextPolicyVersion,
-          model: 'not-selected',
+          model: 'stub-v1',
           nodeId: childNode.id,
           promptTemplateVersion: createBranchDto.context.promptTemplateVersion,
-          provider: 'not-selected',
+          provider: 'stub',
           status: RunStatus.PENDING,
         },
       });

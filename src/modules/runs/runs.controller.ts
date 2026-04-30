@@ -23,6 +23,11 @@ export class RunsController {
     return this.runsService.findOne(id);
   }
 
+  @Post(':id/execute')
+  execute(@Param('id') id: string) {
+    return this.runsService.execute(id);
+  }
+
   @Patch(':id')
   update(@Param('id') id: string, @Body() updateRunDto: UpdateRunDto) {
     return this.runsService.update(id, updateRunDto);
