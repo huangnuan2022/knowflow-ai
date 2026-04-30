@@ -30,9 +30,10 @@ button {
   align-items: center;
   background: #ffffff;
   border-bottom: 1px solid #dfe3ea;
-  display: flex;
-  justify-content: space-between;
-  min-height: 96px;
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 118px;
   padding: 12px 20px;
 }
 
@@ -59,22 +60,29 @@ button {
   align-items: center;
   display: flex;
   gap: 10px;
+  justify-self: end;
 }
 
 .workspace-manager {
   align-content: center;
   display: grid;
   gap: 6px;
-  max-width: min(980px, calc(100vw - 520px));
+  max-width: 1120px;
   min-width: 0;
+  width: 100%;
 }
 
 .workspace-manager__row {
   align-items: center;
   display: grid;
   gap: 8px;
-  grid-template-columns: 54px minmax(160px, 220px) minmax(220px, 380px) auto;
+  grid-template-columns: 72px minmax(160px, 260px) minmax(220px, 1fr) auto;
   min-width: 0;
+}
+
+.workspace-manager__row--description {
+  grid-template-columns: 72px minmax(0, 1fr);
+  max-width: 720px;
 }
 
 .workspace-manager__label {
@@ -111,7 +119,7 @@ button {
 
 .workspace-manager__input--description {
   color: #475569;
-  grid-column: 2 / 4;
+  width: 100%;
 }
 
 .workspace-manager__select:focus,
@@ -125,6 +133,21 @@ button {
 .workspace-manager__input:disabled {
   cursor: not-allowed;
   opacity: 0.62;
+}
+
+@media (max-width: 1240px) {
+  .topbar {
+    align-items: start;
+    grid-template-columns: 1fr;
+  }
+
+  .topbar__actions {
+    justify-self: start;
+  }
+
+  .workspace-manager {
+    max-width: none;
+  }
 }
 
 .status-pill {

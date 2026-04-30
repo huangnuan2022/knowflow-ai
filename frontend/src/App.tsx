@@ -53,6 +53,15 @@ const edgeTypes = {
 };
 
 const WORKSPACE_SELECTION_STORAGE_KEY = 'knowflow.activeWorkspace';
+const INITIAL_FIT_VIEW_OPTIONS = {
+  maxZoom: 0.88,
+  padding: 0.34,
+};
+const GRAPH_ENTRY_FIT_VIEW_OPTIONS = {
+  duration: 260,
+  maxZoom: 0.88,
+  padding: 0.34,
+};
 
 export function App() {
   return (
@@ -85,6 +94,7 @@ function KnowFlowCanvas() {
     sourceNodeId: string;
   } | null>(null);
   const isNodeDraggingRef = useRef(false);
+  const lastAutoFitGraphIdRef = useRef<string | null>(null);
   const canvasFrameRef = useRef<HTMLElement>(null);
 
   const clearCanvasFocus = useCallback(() => {
@@ -659,6 +669,20 @@ function KnowFlowCanvas() {
   }, [fitView, nodes, pendingBranchView]);
 
   useEffect(() => {
+    const activeGraphId = bundle?.activeGraph.id;
+    if (!activeGraphId || nodes.length === 0 || lastAutoFitGraphIdRef.current === activeGraphId) {
+      return;
+    }
+
+    lastAutoFitGraphIdRef.current = activeGraphId;
+    const timeoutId = window.setTimeout(() => {
+      void fitView(GRAPH_ENTRY_FIT_VIEW_OPTIONS);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [bundle?.activeGraph.id, fitView, nodes.length]);
+
+  useEffect(() => {
     if (!pendingFocusNodeId) {
       return;
     }
@@ -809,16 +833,19 @@ function KnowFlowCanvas() {
               Graph
             </button>
           </div>
-          <input
-            aria-label="Project description"
-            className="workspace-manager__input workspace-manager__input--description"
-            disabled={!bundle || isSaving}
-            onBlur={() => void saveProjectDescription()}
-            onChange={(event) => setProjectDescriptionDraft(event.target.value)}
-            onKeyDown={onWorkspaceInputKeyDown}
-            placeholder="Project description"
-            value={projectDescriptionDraft}
-          />
+          <div className="workspace-manager__row workspace-manager__row--description">
+            <span className="workspace-manager__label">Details</span>
+            <input
+              aria-label="Project description"
+              className="workspace-manager__input workspace-manager__input--description"
+              disabled={!bundle || isSaving}
+              onBlur={() => void saveProjectDescription()}
+              onChange={(event) => setProjectDescriptionDraft(event.target.value)}
+              onKeyDown={onWorkspaceInputKeyDown}
+              placeholder="Project description"
+              value={projectDescriptionDraft}
+            />
+          </div>
         </div>
         <div className="topbar__actions">
           <span className="status-pill">{statusText}</span>
@@ -840,6 +867,7 @@ function KnowFlowCanvas() {
             edges={edges}
             edgeTypes={edgeTypes}
             fitView
+            fitViewOptions={INITIAL_FIT_VIEW_OPTIONS}
             connectionMode={ConnectionMode.Loose}
             connectionLineType={ConnectionLineType.Bezier}
             minZoom={0.2}
