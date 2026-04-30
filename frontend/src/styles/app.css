@@ -173,6 +173,13 @@ button {
   padding: 18px;
 }
 
+.conversation-node:not(.is-expanded) {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-height: 0;
+}
+
 .node-resizer-line {
   border-color: rgb(37 99 235 / 0.22) !important;
   opacity: 0.28 !important;
@@ -234,6 +241,7 @@ button {
 .conversation-node__header {
   align-items: center;
   display: grid;
+  flex: 0 0 auto;
   gap: 10px;
   grid-template-columns: auto minmax(0, 1fr) auto;
 }
@@ -343,9 +351,9 @@ button {
 .conversation-node__summary-preview {
   border-top: 1px solid #e2e8f0;
   color: #475569;
+  flex: 0 0 auto;
   font-size: 13px;
   line-height: 1.45;
-  margin-top: 12px;
   overflow-wrap: anywhere;
   padding-top: 12px;
   white-space: pre-wrap;
@@ -633,7 +641,9 @@ button {
 .conversation-node__highlights {
   display: grid;
   gap: 7px;
-  margin-top: 12px;
+  min-height: 0;
+  overflow: auto;
+  padding: 1px 3px 3px 1px;
 }
 
 .conversation-node__highlight {

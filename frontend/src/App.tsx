@@ -498,6 +498,7 @@ function KnowFlowCanvas() {
             nodeTypes={nodeTypes}
             nodes={nodes}
             onConnect={onConnect}
+            zIndexMode="manual"
             nodeClickDistance={5}
             onNodeClick={(_, node) => {
               if (!isNodeDraggingRef.current) {
