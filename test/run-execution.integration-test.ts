@@ -117,6 +117,67 @@ describe('Run execution through provider-neutral adapter', () => {
     });
   });
 
+  it('builds run context from branch selection, ancestor reference, and current node messages', async () => {
+    const { message: sourceMessage } = await createSourceAiMessage(baseUrl);
+    const selectedTextSnapshot = 'Path compression';
+
+    const branch = await requestJson<{
+      childNode: RecordWithId;
+      contextSnapshot: RecordWithId;
+      highlight: RecordWithId;
+      run: RecordWithId;
+    }>(baseUrl, '/branches/from-selection', {
+      body: JSON.stringify({
+        childNode: {
+          title: 'Path Compression Follow-up',
+        },
+        context: {
+          contextPolicyVersion: 'context-builder-v0',
+          promptTemplateVersion: 'context-builder-prompt-v1',
+          tokenEstimate: 1,
+        },
+        endOffset: selectedTextSnapshot.length,
+        messageId: sourceMessage.id,
+        selectedTextSnapshot,
+        startOffset: 0,
+      }),
+      method: 'POST',
+    });
+
+    const childMessage = await requestJson<RecordWithId>(baseUrl, '/messages', {
+      body: JSON.stringify({
+        content: 'Why does this make future find operations faster?',
+        nodeId: branch.childNode.id,
+        role: MessageRole.USER,
+      }),
+      method: 'POST',
+    });
+
+    const result = await requestJson<{
+      message: RecordWithId & { content: string; role: MessageRole; runId: string; sequence: number };
+      run: RecordWithId & {
+        contextSnapshot: {
+          includedHighlightIds: string[];
+          includedMessageIds: string[];
+          selectedTextSnapshot: string;
+          tokenEstimate: number;
+        };
+        status: RunStatus;
+      };
+    }>(baseUrl, `/runs/${branch.run.id}/execute`, { method: 'POST' });
+
+    expect(result.run.status).toBe(RunStatus.SUCCEEDED);
+    expect(result.message.content).toContain(selectedTextSnapshot);
+    expect(result.run.contextSnapshot).toMatchObject({
+      selectedTextSnapshot,
+    });
+    expect(result.run.contextSnapshot.includedHighlightIds).toEqual(expect.arrayContaining([branch.highlight.id]));
+    expect(result.run.contextSnapshot.includedMessageIds).toEqual(
+      expect.arrayContaining([sourceMessage.id, childMessage.id]),
+    );
+    expect(result.run.contextSnapshot.tokenEstimate).toBeGreaterThan(1);
+  });
+
   it('marks a run failed when the provider is not registered', async () => {
     const { message, node } = await createNodeWithMessage(baseUrl);
     const run = await createRunWithContext(baseUrl, {
@@ -169,6 +230,44 @@ async function createNodeWithMessage(baseUrl: string) {
   });
 
   return {
+    message,
+    node,
+  };
+}
+
+async function createSourceAiMessage(baseUrl: string) {
+  const project = await requestJson<RecordWithId>(baseUrl, '/projects', {
+    body: JSON.stringify({ title: 'Context Builder Project' }),
+    method: 'POST',
+  });
+
+  const graph = await requestJson<RecordWithId>(baseUrl, '/graphs', {
+    body: JSON.stringify({
+      projectId: project.id,
+      title: 'Context Builder Graph',
+    }),
+    method: 'POST',
+  });
+
+  const node = await requestJson<RecordWithId>(baseUrl, '/nodes', {
+    body: JSON.stringify({
+      graphId: graph.id,
+      title: 'Union Find Basics',
+    }),
+    method: 'POST',
+  });
+
+  const message = await requestJson<RecordWithId>(baseUrl, '/messages', {
+    body: JSON.stringify({
+      content: 'Path compression makes every visited node point directly to the root after find.',
+      nodeId: node.id,
+      role: MessageRole.ASSISTANT,
+    }),
+    method: 'POST',
+  });
+
+  return {
+    graph,
     message,
     node,
   };

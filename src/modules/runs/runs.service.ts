@@ -1,8 +1,8 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { MessageRole, Prisma, RunStatus } from '@prisma/client';
+import { MessageRole, RunStatus } from '@prisma/client';
 import { requireRecord } from '../../common/prisma-errors';
-import { AiProviderMessage } from '../ai/providers/ai-provider.interface';
 import { AiProviderRegistry } from '../ai/providers/ai-provider.registry';
+import { ContextBuilderService } from '../context-builder/context-builder.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateRunDto } from './dto/create-run.dto';
 import { UpdateRunDto } from './dto/update-run.dto';
@@ -11,6 +11,7 @@ import { UpdateRunDto } from './dto/update-run.dto';
 export class RunsService {
   constructor(
     private readonly aiProviderRegistry: AiProviderRegistry,
+    private readonly contextBuilder: ContextBuilderService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -54,19 +55,7 @@ export class RunsService {
   }
 
   async execute(id: string) {
-    const run = await this.prisma.run.findUnique({
-      include: {
-        contextSnapshot: true,
-        node: {
-          include: {
-            messages: {
-              orderBy: { sequence: 'asc' },
-            },
-          },
-        },
-      },
-      where: { id },
-    });
+    const run = await this.prisma.run.findUnique({ where: { id } });
 
     const existingRun = requireRecord(run, 'Run', id);
     if (existingRun.status !== RunStatus.PENDING) {
@@ -87,6 +76,7 @@ export class RunsService {
       throw new BadRequestException(`AI provider ${existingRun.provider} is not registered`);
     }
 
+    const context = await this.contextBuilder.buildForRun(id);
     const startedAt = new Date();
     await this.prisma.run.update({
       data: {
@@ -98,10 +88,10 @@ export class RunsService {
 
     try {
       const completion = await provider.complete({
-        messages: toProviderMessages(existingRun.node.messages),
+        messages: context.providerMessages,
         model: existingRun.model,
         runId: existingRun.id,
-        selectedTextSnapshot: existingRun.contextSnapshot?.selectedTextSnapshot,
+        selectedTextSnapshot: context.selectedTextSnapshot,
       });
 
       return this.prisma.$transaction(async (tx) => {
@@ -159,11 +149,4 @@ export class RunsService {
       };
     }
   }
-}
-
-function toProviderMessages(messages: Array<{ role: MessageRole; content: string }>): AiProviderMessage[] {
-  return messages.map((message) => ({
-    content: message.content,
-    role: message.role.toLowerCase() as AiProviderMessage['role'],
-  }));
 }

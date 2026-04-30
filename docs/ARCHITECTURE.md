@@ -89,6 +89,8 @@ Current Phase 1 routes:
 
 `POST /api/branches/from-selection` creates the branch operation as one backend transaction rather than a client sequence of separate CRUD calls. It creates the Highlight, child conversation Node, branch Edge, stub-backed pending Run, and ContextSnapshot together.
 
+`POST /api/runs/:id/execute` calls ContextBuilder v0 before the provider adapter. The builder refreshes the run's `ContextSnapshot` and prepares provider messages from current node messages, selected text, and ancestor branch references.
+
 ## Database Direction
 
 Use Prisma + PostgreSQL with normalized core tables.
@@ -147,6 +149,14 @@ MVP context should not automatically include:
 
 Use visible context chips in the UI so the user can understand what the AI is using.
 
+Phase 1 ContextBuilder v0:
+
+- Includes ordered messages from the run's current node.
+- Preserves selected branch text from the existing `ContextSnapshot` or nearest branch highlight.
+- Follows the inbound branch path up to a small fixed depth and stores referenced message and highlight ids.
+- Writes only references, selected text snapshot, token estimate, prompt template version, and context policy version to `ContextSnapshot`.
+- Produces transient provider messages at execution time without storing the full rendered prompt.
+
 ## AI Run Lifecycle
 
 MVP AI responses are non-streaming first. Even when calls are synchronous, each AI request should create a durable run record.
@@ -173,6 +183,8 @@ Each run should preserve:
 Use a provider-neutral AI adapter from day one. Domain run logic should depend on an internal adapter interface, not on one provider SDK's request or response shape.
 
 Phase 1 includes a deterministic local `stub` provider so run lifecycle behavior can be tested without connecting to a real model. The stub provider is not a product AI integration and should be replaced by a real adapter after the context builder and provider choice are confirmed.
+
+Phase 1 run execution is synchronous and non-streaming, but it still follows the durable lifecycle: validate pending run, build context, mark running, call provider adapter, persist exactly one assistant message on success, then mark succeeded or failed.
 
 Future async path:
 

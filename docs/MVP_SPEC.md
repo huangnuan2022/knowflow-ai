@@ -27,12 +27,13 @@ Implemented in Phase 1:
 - Integration tests for branch-from-selection success and invalid-selection failure without partial branch records.
 - Provider-neutral AI adapter interface with a local deterministic `stub` provider.
 - Non-streaming run execution endpoint backed by durable Run status transitions.
+- ContextBuilder v0 service that prepares provider messages from the current node thread, selected branch text, and ancestor branch references.
+- Run execution now creates or refreshes the run's `ContextSnapshot` before calling the provider.
 
 Not implemented in Phase 1:
 
 - Frontend canvas.
 - Real AI provider integration.
-- Full context builder implementation.
 - Export/import.
 
 ### Included Features
