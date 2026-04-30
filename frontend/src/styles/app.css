@@ -700,16 +700,52 @@ button {
   background: #64748b;
   border: 2px solid #ffffff;
   height: 12px;
-  opacity: 0.55;
+  opacity: 0.28;
   width: 12px;
 }
 
-.node-handle--manual-source {
-  right: -8px;
+.node-handle--manual-target {
+  background: #94a3b8;
 }
 
-.node-handle--manual-target {
+.node-handle--manual-source.node-handle--manual-top {
+  left: calc(50% + 8px);
+  top: -8px;
+}
+
+.node-handle--manual-target.node-handle--manual-top {
+  left: calc(50% - 8px);
+  top: -8px;
+}
+
+.node-handle--manual-source.node-handle--manual-right {
+  right: -8px;
+  top: calc(50% - 8px);
+}
+
+.node-handle--manual-target.node-handle--manual-right {
+  right: -8px;
+  top: calc(50% + 8px);
+}
+
+.node-handle--manual-source.node-handle--manual-bottom {
+  bottom: -8px;
+  left: calc(50% + 8px);
+}
+
+.node-handle--manual-target.node-handle--manual-bottom {
+  bottom: -8px;
+  left: calc(50% - 8px);
+}
+
+.node-handle--manual-source.node-handle--manual-left {
   left: -8px;
+  top: calc(50% - 8px);
+}
+
+.node-handle--manual-target.node-handle--manual-left {
+  left: -8px;
+  top: calc(50% + 8px);
 }
 
 .conversation-node:hover .node-handle--manual,
@@ -748,6 +784,10 @@ button {
 }
 
 .editable-edge-label {
+  --edge-label-accent: #2563eb;
+  --edge-label-bg: #ffffff;
+  --edge-label-border: #cbd5e1;
+  --edge-label-text: #334155;
   pointer-events: all;
   position: absolute;
   z-index: 15;
@@ -760,11 +800,11 @@ button {
 }
 
 .editable-edge-label__button {
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
+  background: var(--edge-label-bg);
+  border: 1px solid var(--edge-label-border);
   border-radius: 6px;
   box-shadow: 0 4px 12px rgb(15 23 42 / 0.08);
-  color: #334155;
+  color: var(--edge-label-text);
   cursor: pointer;
   font: inherit;
   font-size: 11px;
@@ -778,14 +818,20 @@ button {
 
 .editable-edge-label__button:hover,
 .editable-edge-label__button:focus {
-  border-color: #2563eb;
-  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.12);
+  border-color: var(--edge-label-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--edge-label-accent) 14%, transparent);
   outline: none;
 }
 
 .editable-edge-label__button.is-branch {
-  border-color: transparent;
-  color: #111827;
+  background: var(--edge-label-bg);
+  border-color: var(--edge-label-border);
+  color: var(--edge-label-text);
+}
+
+.editable-edge-label__button.is-placeholder {
+  border-style: dashed;
+  color: #64748b;
 }
 
 .editable-edge-label__delete {
@@ -813,11 +859,11 @@ button {
 }
 
 .editable-edge-label__form input {
-  background: #ffffff;
-  border: 1px solid #2563eb;
+  background: var(--edge-label-bg);
+  border: 1px solid var(--edge-label-accent);
   border-radius: 6px;
-  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.12);
-  color: #111827;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--edge-label-accent) 14%, transparent);
+  color: var(--edge-label-text);
   font: inherit;
   font-size: 12px;
   min-width: 132px;

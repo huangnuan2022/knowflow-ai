@@ -3,12 +3,11 @@ import {
   EdgeLabelRenderer,
   EdgeProps,
   getBezierPath,
-  getSmoothStepPath,
   Position,
 } from '@xyflow/react';
 import { Trash2 } from 'lucide-react';
-import { FormEvent, KeyboardEvent, MouseEvent, useEffect, useRef, useState } from 'react';
-import { ConversationFlowEdge, KnowFlowEdgeData } from '../lib/reactFlowAdapter';
+import { CSSProperties, FormEvent, KeyboardEvent, MouseEvent, useEffect, useMemo, useRef, useState } from 'react';
+import { BranchColor, ConversationFlowEdge, KnowFlowEdgeData } from '../lib/reactFlowAdapter';
 
 export function EditableEdge({
   data,
@@ -27,7 +26,7 @@ export function EditableEdge({
   const isBranchEdge = edgeData.edgeType === 'BRANCH';
   const label = edgeData.label?.trim() ?? '';
   const canEdit = edgeData.edgeType === 'MANUAL';
-  const shouldShowLabel = Boolean(label) || (canEdit && selected);
+  const shouldShowLabel = Boolean(label) || canEdit;
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -38,7 +37,7 @@ export function EditableEdge({
     setDraft(label);
   }, [label]);
 
-  const smoothStepPath = getSmoothStepPath({
+  const [edgePath, labelX, labelY] = getBezierPath({
     sourcePosition,
     sourceX,
     sourceY,
@@ -46,15 +45,13 @@ export function EditableEdge({
     targetX,
     targetY,
   });
-  const bezierPath = getBezierPath({
-    sourcePosition,
-    sourceX,
-    sourceY,
-    targetPosition,
-    targetX,
-    targetY,
-  });
-  const [edgePath, labelX, labelY] = isBranchEdge ? smoothStepPath : bezierPath;
+  const edgeLabelStyle = useMemo(
+    () => ({
+      ...edgeColorStyle(edgeData.color),
+      transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
+    }),
+    [edgeData.color, labelX, labelY],
+  );
 
   const saveLabel = async () => {
     if (!canEdit || isSaving) {
@@ -112,10 +109,8 @@ export function EditableEdge({
       {shouldShowLabel ? (
         <EdgeLabelRenderer>
           <div
-            className="editable-edge-label nodrag nopan"
-            style={{
-              transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)`,
-            }}
+            className={`editable-edge-label nodrag nopan ${canEdit ? 'is-manual' : 'is-branch'}`}
+            style={edgeLabelStyle}
           >
             {isEditing ? (
               <form className="editable-edge-label__form" onSubmit={onSubmit}>
@@ -139,7 +134,13 @@ export function EditableEdge({
             ) : (
               <div className="editable-edge-label__actions">
                 <button
-                  className={`editable-edge-label__button ${isBranchEdge ? 'is-branch' : ''}`}
+                  className={[
+                    'editable-edge-label__button',
+                    isBranchEdge ? 'is-branch' : '',
+                    canEdit && !label ? 'is-placeholder' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                   onClick={(event) => {
                     event.stopPropagation();
                     if (canEdit) {
@@ -149,9 +150,9 @@ export function EditableEdge({
                   title={canEdit ? 'Edit relationship label' : 'Branch source text'}
                   type="button"
                 >
-                  {label || 'Label'}
+                  {label || 'Add label'}
                 </button>
-                {canEdit && selected ? (
+                {canEdit ? (
                   <button
                     aria-label="Delete relationship edge"
                     className="editable-edge-label__delete"
@@ -170,4 +171,17 @@ export function EditableEdge({
       ) : null}
     </>
   );
+}
+
+function edgeColorStyle(color?: BranchColor): CSSProperties {
+  if (!color) {
+    return {};
+  }
+
+  return {
+    '--edge-label-accent': color.edge,
+    '--edge-label-bg': color.softBackground,
+    '--edge-label-border': color.border,
+    '--edge-label-text': color.text,
+  } as CSSProperties;
 }

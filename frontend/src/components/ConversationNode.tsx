@@ -20,8 +20,9 @@ import {
   branchTargetHandleId,
   ConversationNodeData,
   colorForHighlightId,
-  manualSourceHandleId,
-  manualTargetHandleId,
+  manualHandleSides,
+  manualNodeHandleId,
+  ManualHandleSide,
 } from '../lib/reactFlowAdapter';
 import { readTextSelectionWithin, TextSelectionRange } from '../lib/textSelection';
 
@@ -328,15 +329,18 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
         position={Position.Top}
         type="target"
       />
-      <Handle
-        className={`node-handle node-handle--manual node-handle--manual-target ${
-          isExpanded ? 'node-handle--manual-hidden' : ''
-        }`}
-        id={manualTargetHandleId}
-        isConnectable={!isExpanded}
-        position={Position.Left}
-        type="target"
-      />
+      {manualHandleSides.map((side) => (
+        <Handle
+          className={`node-handle node-handle--manual node-handle--manual-target node-handle--manual-${side} ${
+            isExpanded ? 'node-handle--manual-hidden' : ''
+          }`}
+          id={manualNodeHandleId('target', side)}
+          isConnectable={!isExpanded}
+          key={`manual-target-${side}`}
+          position={manualHandlePosition(side)}
+          type="target"
+        />
+      ))}
       <div className="conversation-node__header">
         <span className="conversation-node__icon" aria-hidden="true">
           <MessageSquareText size={16} />
@@ -442,17 +446,33 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
         <CollapsedNodeBody nodeData={nodeData} sourceNodeId={id} />
       )}
 
-      <Handle
-        className={`node-handle node-handle--manual node-handle--manual-source ${
-          isExpanded ? 'node-handle--manual-hidden' : ''
-        }`}
-        id={manualSourceHandleId}
-        isConnectable={!isExpanded}
-        position={Position.Right}
-        type="source"
-      />
+      {manualHandleSides.map((side) => (
+        <Handle
+          className={`node-handle node-handle--manual node-handle--manual-source node-handle--manual-${side} ${
+            isExpanded ? 'node-handle--manual-hidden' : ''
+          }`}
+          id={manualNodeHandleId('source', side)}
+          isConnectable={!isExpanded}
+          key={`manual-source-${side}`}
+          position={manualHandlePosition(side)}
+          type="source"
+        />
+      ))}
     </article>
   );
+}
+
+function manualHandlePosition(side: ManualHandleSide) {
+  switch (side) {
+    case 'top':
+      return Position.Top;
+    case 'right':
+      return Position.Right;
+    case 'bottom':
+      return Position.Bottom;
+    case 'left':
+      return Position.Left;
+  }
 }
 
 function CollapsedNodeBody({

@@ -84,7 +84,8 @@ Started in Phase 3:
 - New nodes should be created near the current visible canvas center, not at a fixed global graph coordinate.
 - Collapsed and expanded nodes can be resized from their borders, and resized dimensions are stored in node layout metadata.
 - Node title and summary editing from the frontend, saved through the backend node update boundary.
-- Manual edges can be created only between collapsed node-level side handles and labeled as lightweight peer relationships. Manual edges are undirected by default, editable, and deletable. Branch points are reserved for branch navigation, not manual connection starts, and branch edge labels remain tied to selected source text.
+- Manual edges can be created only between collapsed node-level handles and labeled as lightweight peer relationships. Collapsed nodes expose handles on all four sides so manual links are not limited to left-in/right-out placement. Manual edges are undirected by default, editable, and deletable. Branch points are reserved for branch navigation, not manual connection starts, and branch edge labels remain tied to selected source text.
+- Branch edge labels inherit the source highlight color, matching the highlight and child branch node. MVP edge routing uses simple bezier curves for branch and manual edges to avoid the snapped/merged look of orthogonal routing.
 - The right sidebar acts as a secondary read-only inspector instead of the primary ask/branch surface.
 
 Not implemented in Phase 3:

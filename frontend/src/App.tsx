@@ -1,6 +1,7 @@
 import {
   Background,
   Connection,
+  ConnectionLineType,
   Controls,
   MiniMap,
   NodeChange,
@@ -32,8 +33,8 @@ import { DomainEdge, GraphBundle, NodeLayout } from './lib/domain';
 import {
   ConversationFlowEdge,
   ConversationFlowNode,
-  manualSourceHandleId,
-  manualTargetHandleId,
+  isManualSourceHandleId,
+  isManualTargetHandleId,
   toReactFlowEdges,
   toReactFlowNodes,
 } from './lib/reactFlowAdapter';
@@ -382,7 +383,11 @@ function KnowFlowCanvas() {
   ]);
 
   useEffect(() => {
-    setEdges(bundle ? toReactFlowEdges(bundle.edges, { onEdgeDeleteRequested, onEdgeLabelChanged }, selectedNodeId) : []);
+    setEdges(
+      bundle
+        ? toReactFlowEdges(bundle.edges, { onEdgeDeleteRequested, onEdgeLabelChanged }, selectedNodeId, bundle.nodes)
+        : [],
+    );
   }, [bundle, onEdgeDeleteRequested, onEdgeLabelChanged, selectedNodeId, setEdges]);
 
   useEffect(() => {
@@ -421,8 +426,8 @@ function KnowFlowCanvas() {
         setError('Manual relationship edges need two different nodes.');
         return;
       }
-      if (connection.sourceHandle !== manualSourceHandleId || connection.targetHandle !== manualTargetHandleId) {
-        setError('Create manual relationship edges from a collapsed node side handle to another collapsed node.');
+      if (!isManualSourceHandleId(connection.sourceHandle) || !isManualTargetHandleId(connection.targetHandle)) {
+        setError('Create manual relationship edges from collapsed node side handles.');
         return;
       }
 
@@ -488,6 +493,7 @@ function KnowFlowCanvas() {
             edges={edges}
             edgeTypes={edgeTypes}
             fitView
+            connectionLineType={ConnectionLineType.Bezier}
             minZoom={0.2}
             nodeTypes={nodeTypes}
             nodes={nodes}

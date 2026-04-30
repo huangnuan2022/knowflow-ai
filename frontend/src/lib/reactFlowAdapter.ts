@@ -83,12 +83,27 @@ export type ConversationEdgeActions = {
   onEdgeLabelChanged?: (edgeId: string, label: string) => Promise<void> | void;
 };
 
+export const manualHandleSides = ['top', 'right', 'bottom', 'left'] as const;
+export type ManualHandleSide = (typeof manualHandleSides)[number];
+
 export const branchTargetHandleId = 'branch-target';
-export const manualSourceHandleId = 'manual-source';
-export const manualTargetHandleId = 'manual-target';
+export const manualSourceHandleId = manualNodeHandleId('source', 'right');
+export const manualTargetHandleId = manualNodeHandleId('target', 'left');
 
 export function branchHighlightHandleId(highlightId: string) {
   return `branch-highlight-${highlightId}`;
+}
+
+export function manualNodeHandleId(kind: 'source' | 'target', side: ManualHandleSide) {
+  return `manual-${kind}-${side}`;
+}
+
+export function isManualSourceHandleId(handleId?: string | null) {
+  return manualHandleSides.some((side) => handleId === manualNodeHandleId('source', side));
+}
+
+export function isManualTargetHandleId(handleId?: string | null) {
+  return manualHandleSides.some((side) => handleId === manualNodeHandleId('target', side));
 }
 
 export function toReactFlowNodes(
@@ -152,15 +167,20 @@ export function toReactFlowEdges(
   edges: DomainEdge[],
   actions: ConversationEdgeActions = {},
   selectedNodeId?: string | null,
+  nodes: DomainNode[] = [],
 ): ConversationFlowEdge[] {
+  const nodesById = new Map(nodes.map((node) => [node.id, node]));
+
   return edges.map((edge) => {
     const isBranchEdge = edge.type === 'BRANCH';
     const shouldRenderAboveSourceNode = isBranchEdge && edge.sourceNodeId === selectedNodeId;
+    const manualSides = isBranchEdge ? undefined : getManualEdgeHandleSides(edge, nodesById);
+    const branchColor = isBranchEdge ? colorForHighlightId(edge.sourceHighlightId ?? edge.id) : undefined;
 
     return {
       className: isBranchEdge ? 'branch-edge' : undefined,
       data: {
-        color: edge.sourceHighlightId ? colorForHighlightId(edge.sourceHighlightId) : undefined,
+        color: branchColor,
         edgeType: edge.type,
         label: edge.label,
         onEdgeDeleteRequested: actions.onEdgeDeleteRequested,
@@ -170,7 +190,7 @@ export function toReactFlowEdges(
       label: edge.label ?? undefined,
       markerEnd: isBranchEdge
         ? {
-            color: colorForHighlightId(edge.sourceHighlightId ?? edge.id).edge,
+            color: branchColor?.edge ?? '#2563eb',
             type: MarkerType.ArrowClosed,
           }
         : undefined,
@@ -179,12 +199,10 @@ export function toReactFlowEdges(
         ? edge.sourceHighlightId
           ? branchHighlightHandleId(edge.sourceHighlightId)
           : undefined
-        : manualSourceHandleId,
-      style: isBranchEdge
-        ? { stroke: colorForHighlightId(edge.sourceHighlightId ?? edge.id).edge, strokeOpacity: 0.54, strokeWidth: 1.75 }
-        : undefined,
+        : manualNodeHandleId('source', manualSides?.source ?? 'right'),
+      style: isBranchEdge ? { stroke: branchColor?.edge ?? '#2563eb', strokeOpacity: 0.54, strokeWidth: 1.75 } : undefined,
       target: edge.targetNodeId,
-      targetHandle: isBranchEdge ? branchTargetHandleId : manualTargetHandleId,
+      targetHandle: isBranchEdge ? branchTargetHandleId : manualNodeHandleId('target', manualSides?.target ?? 'left'),
       type: 'editable',
       zIndex: shouldRenderAboveSourceNode ? 1200 : 10,
     };
@@ -239,6 +257,57 @@ function groupBranchTargetsByHighlightId(edges: DomainEdge[], nodes: DomainNode[
 function findInboundBranchColor(edges: DomainEdge[] | undefined, nodeId: string) {
   const inboundBranch = edges?.find((edge) => edge.targetNodeId === nodeId && edge.type === 'BRANCH');
   return inboundBranch?.sourceHighlightId ? colorForHighlightId(inboundBranch.sourceHighlightId) : undefined;
+}
+
+function getManualEdgeHandleSides(edge: DomainEdge, nodesById: Map<string, DomainNode>) {
+  const sourceNode = nodesById.get(edge.sourceNodeId);
+  const targetNode = nodesById.get(edge.targetNodeId);
+
+  if (!sourceNode || !targetNode) {
+    return {
+      source: 'right' as const,
+      target: 'left' as const,
+    };
+  }
+
+  const sourceCenter = getNodeCenter(sourceNode);
+  const targetCenter = getNodeCenter(targetNode);
+  const deltaX = targetCenter.x - sourceCenter.x;
+  const deltaY = targetCenter.y - sourceCenter.y;
+
+  if (Math.abs(deltaX) >= Math.abs(deltaY)) {
+    return deltaX >= 0
+      ? {
+          source: 'right' as const,
+          target: 'left' as const,
+        }
+      : {
+          source: 'left' as const,
+          target: 'right' as const,
+        };
+  }
+
+  return deltaY >= 0
+    ? {
+        source: 'bottom' as const,
+        target: 'top' as const,
+      }
+    : {
+        source: 'top' as const,
+        target: 'bottom' as const,
+      };
+}
+
+function getNodeCenter(node: DomainNode) {
+  const x = numberOrDefault(node.layout?.x, 0);
+  const y = numberOrDefault(node.layout?.y, 0);
+  const width = numberOrDefault(node.layout?.width, 340);
+  const height = numberOrDefault(node.layout?.height, 220);
+
+  return {
+    x: x + width / 2,
+    y: y + height / 2,
+  };
 }
 
 function previewMessages(messages: NodeMessagePreview[]) {
