@@ -91,7 +91,7 @@ Not implemented in Phase 1:
 - The child node is connected by a branch edge.
 - The child node shows or receives the selected text as context.
 - AI runs have visible success or failure status.
-- The graph remains usable for at least 10-20 nodes.
+- The graph remains usable for at least 30 conversation nodes in a v0 performance fixture.
 
 ### Branch-From-Selection Acceptance Test
 
@@ -210,7 +210,17 @@ All created records must persist after refresh. If any part fails, the operation
 | Cost growth | Track model and token estimates per run. |
 | Persistence inconsistency | Use transactions for branch creation. |
 
+## v0 Performance Fixture
+
+The v0 graph performance check should use at least:
+
+- 30 conversation nodes.
+- About 40 branch/manual edges.
+- About 120 messages total.
+- Representative highlights, runs, context snapshots, and saved layout metadata.
+
+This is intentionally above the 10-20 node product-success range but below the 50-100 node refactor trigger.
+
 ## Open Questions
 
-- What minimum graph size should be used as the v0 performance check?
-- Which AI provider and model should be used for the first provider-neutral adapter implementation?
+- No open MVP scope questions remain from the initial architecture-decision list.

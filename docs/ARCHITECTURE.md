@@ -184,6 +184,8 @@ Use a provider-neutral AI adapter from day one. Domain run logic should depend o
 
 Phase 1 includes a deterministic local `stub` provider so run lifecycle behavior can be tested without connecting to a real model. The stub provider is not a product AI integration and should be replaced by a real adapter after the context builder and provider choice are confirmed.
 
+The first real provider should be an OpenAI adapter using the Responses API with default model `gpt-5.4-mini`. Runs should store `provider = openai` and the exact model id used. The adapter should read credentials from environment configuration and should not leak API keys, rendered prompts, or raw provider responses into logs.
+
 Phase 1 run execution is synchronous and non-streaming, but it still follows the durable lifecycle: validate pending run, build context, mark running, call provider adapter, persist exactly one assistant message on success, then mark succeeded or failed.
 
 Future async path:
@@ -237,6 +239,39 @@ For KnowFlow MVP this means:
 - Maintainability: keep modules separate inside one deployable app.
 - Evolution: design for future async AI work without requiring a queue in v0.
 
+## v0 Performance Check
+
+Use a 30-node graph as the minimum v0 performance fixture:
+
+- 30 conversation nodes.
+- About 40 edges.
+- About 120 messages.
+- Representative highlights, runs, context snapshots, and layout metadata.
+
+This fixture should verify that graph loading, canvas rendering, panning, zooming, and node movement remain usable in local development. It is not a large-graph scalability guarantee. If the app struggles before 30 nodes, reduce payload coupling and rendering work before adding advanced graph features.
+
+## v1 Export Format Direction
+
+Use a versioned KnowFlow JSON export before interoperability formats.
+
+Stable top-level fields:
+
+- `format`: fixed string such as `knowflow.export`.
+- `version`: export schema version, starting at `1`.
+- `exportedAt`: ISO timestamp.
+- `sourceAppVersion`: app version or commit when available.
+- `project`: project identity, title, description, settings, and timestamps.
+- `graphs`: graph identity, project reference, title, root node reference, settings, and timestamps.
+- `nodes`: node identity, graph reference, type, title, summary, layout metadata, and timestamps.
+- `edges`: edge identity, graph reference, source/target node references, type, label, source highlight reference, and timestamps.
+- `messages`: message identity, node reference, role, content, sequence, run reference, token count, version, and timestamps.
+- `highlights`: highlight identity, message reference, offsets, selected text snapshot, anchor version, and timestamps.
+- `runs`: run identity, node reference, status, provider, model, prompt/context versions, timing, token usage, and error metadata.
+- `contextSnapshots`: snapshot identity, run reference, included message ids, included highlight ids, selected text snapshot, token estimate, prompt template version, context policy version, and timestamp.
+- `metadata`: export options, feature flags, and future extension metadata.
+
+Do not include authentication state, API keys, raw provider request/response payloads, or full rendered prompts by default. Imports may remap ids to avoid collisions, but the export file should preserve internal references so a graph can round-trip.
+
 ## Verification Commands
 
 Current backend verification commands:
@@ -261,6 +296,4 @@ npm run test:integration
 
 ## Open Questions
 
-- What export format fields should be stable in v1?
-- Which AI provider and model should be used for the first adapter implementation?
-- What minimum graph size should be used as the v0 performance check?
+- No open architecture questions remain from the initial architecture-decision list.

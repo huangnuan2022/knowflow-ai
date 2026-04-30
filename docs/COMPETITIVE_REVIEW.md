@@ -66,6 +66,6 @@ It should not be described as:
 ## Open Questions
 
 - Which competitor should be used as the closest comparison in demos?
-- Should export compatibility with JSON Canvas be pursued in v1 or later?
+- Should JSON Canvas compatibility be pursued after KnowFlow's own v1 export format is stable?
 - Should KnowFlow eventually support source-grounded study like NotebookLM, or stay conversation-first?
 - Should freehand drawing ever become part of the product, or remain out of scope?

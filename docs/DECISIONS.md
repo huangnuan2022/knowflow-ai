@@ -139,8 +139,34 @@ This file records major product and architecture decisions. Update it whenever a
 - Future scalable alternative: Transactional command handler plus audit/event records for graph operations.
 - Revisit trigger: Branch operations become multi-step, async, or cross-graph.
 
+### 2026-04-30: Use OpenAI Responses API With GPT-5.4 Mini As The First Real Provider
+
+- Decision: The first real AI adapter should be `provider = openai` using the OpenAI Responses API with default `model = gpt-5.4-mini`. Keep the existing `stub` provider for deterministic local tests.
+- Reason: KnowFlow's v0 needs many short tutor turns, branch follow-ups, and bounded graph context. OpenAI's current model docs recommend smaller GPT-5.4 variants for lower-latency, lower-cost workloads, and `gpt-5.4-mini` supports the Responses API, structured outputs, streaming for later, and a large context window. Source checked 2026-04-30: https://developers.openai.com/api/docs/models and https://developers.openai.com/api/docs/models/gpt-5.4-mini.
+- Tradeoff: `gpt-5.4-mini` is not the highest-quality model; hard CS/system-design explanations may sometimes need a stronger model.
+- Simpler MVP alternative: Keep only the local `stub` provider or call one OpenAI model directly from `RunsService`.
+- Future scalable alternative: Per-project or per-run model routing with `gpt-5.4` or `gpt-5.5` for harder explanations, fallback providers, eval-based model selection, and async streaming after the core workflow works.
+- Revisit trigger: User testing shows weak explanations, token costs exceed expectations, OpenAI pricing/availability changes, or provider-neutral adapter behavior becomes too constrained.
+
+### 2026-04-30: Use 30 Nodes As The v0 Graph Performance Check
+
+- Decision: v0 should pass a minimum performance fixture of 30 conversation nodes, about 40 edges, about 120 messages, and representative highlights, runs, context snapshots, and layout metadata.
+- Reason: Product success starts around 10-20 nodes, but engineering should test above that range to leave margin without optimizing prematurely for 100+ node graphs.
+- Tradeoff: This does not prove large-graph scalability; it only proves the MVP remains usable for realistic early learning sessions.
+- Simpler MVP alternative: Test only the 10-20 node demo graph.
+- Future scalable alternative: Add generated 100+ node benchmarks, graph virtualization, selective message loading, summary-first node rendering, and backend aggregate graph-loading endpoints.
+- Revisit trigger: A 30-node graph feels cluttered or slow, users create 50-100 node graphs, or canvas/API loading becomes a visible demo problem.
+
+### 2026-04-30: Define A Versioned KnowFlow v1 Export Format
+
+- Decision: v1 export/import should use an internal, versioned KnowFlow JSON format before attempting JSON Canvas compatibility. Stable top-level fields should include `format`, `version`, `exportedAt`, `sourceAppVersion`, `project`, `graphs`, `nodes`, `edges`, `messages`, `highlights`, `runs`, `contextSnapshots`, and `metadata`.
+- Reason: KnowFlow must preserve conversation threads, branch highlights, AI run state, context references, and layout metadata. Generic canvas formats cannot represent that full learning memory safely.
+- Tradeoff: The export is more verbose and less interoperable than a generic canvas export.
+- Simpler MVP alternative: No export/import in v0, or a database dump for local development only.
+- Future scalable alternative: Add partial graph export, JSON Canvas layout export, encrypted exports, import conflict resolution, and migration scripts between export versions.
+- Revisit trigger: Users need interoperability with Obsidian Canvas, exports leak too much sensitive content, or v1 import cannot round-trip graph, message, highlight, run, and context references.
+
 ## Open Questions
 
-- Which AI provider and model should be used for the first adapter implementation?
-- What minimum graph size should be used as the v0 performance check?
-- What exact fields should the v1 export format guarantee as stable?
+- No open questions remain from the initial architecture-decision list.
+- Product research questions remain in `docs/PRODUCT_BRIEF.md` and competitive direction questions remain in `docs/COMPETITIVE_REVIEW.md`.
