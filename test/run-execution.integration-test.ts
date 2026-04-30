@@ -10,6 +10,7 @@ const testDatabaseUrl =
   'postgresql://knowflow:knowflow@localhost:15432/knowflow_test?schema=public';
 
 process.env.DATABASE_URL = process.env.DATABASE_URL ?? testDatabaseUrl;
+process.env.OPENAI_API_KEY = '';
 
 type RecordWithId = {
   id: string;
@@ -196,6 +197,30 @@ describe('Run execution through provider-neutral adapter', () => {
     });
     await expect(prisma.message.count({ where: { runId: run.id } })).resolves.toBe(0);
   });
+
+  it('marks an OpenAI run failed clearly when OPENAI_API_KEY is not configured', async () => {
+    const { message, node } = await createNodeWithMessage(baseUrl);
+    const run = await createRunWithContext(baseUrl, {
+      messageId: message.id,
+      model: 'gpt-5.4-mini',
+      nodeId: node.id,
+      provider: 'openai',
+      selectedTextSnapshot: 'path compression',
+    });
+
+    const result = await requestJson<{
+      message: null;
+      run: RecordWithId & { errorCode: string; errorMessage: string; status: RunStatus };
+    }>(baseUrl, `/runs/${run.id}/execute`, { method: 'POST' });
+
+    expect(result.message).toBeNull();
+    expect(result.run).toMatchObject({
+      errorCode: 'PROVIDER_EXECUTION_FAILED',
+      status: RunStatus.FAILED,
+    });
+    expect(result.run.errorMessage).toContain('OPENAI_API_KEY is required');
+    await expect(prisma.message.count({ where: { runId: run.id } })).resolves.toBe(0);
+  });
 });
 
 async function createNodeWithMessage(baseUrl: string) {
@@ -277,6 +302,7 @@ async function createRunWithContext(
   baseUrl: string,
   input: {
     messageId: string;
+    model?: string;
     nodeId: string;
     provider: string;
     selectedTextSnapshot: string;
@@ -285,7 +311,7 @@ async function createRunWithContext(
   const run = await requestJson<RecordWithId>(baseUrl, '/runs', {
     body: JSON.stringify({
       contextPolicyVersion: 'run-execution-context-v1',
-      model: 'stub-v1',
+      model: input.model ?? 'stub-v1',
       nodeId: input.nodeId,
       promptTemplateVersion: 'run-execution-prompt-v1',
       provider: input.provider,

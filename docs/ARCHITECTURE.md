@@ -184,7 +184,7 @@ Use a provider-neutral AI adapter from day one. Domain run logic should depend o
 
 Phase 1 includes a deterministic local `stub` provider so run lifecycle behavior can be tested without connecting to a real model. The stub provider is not a product AI integration and should be replaced by a real adapter after the context builder and provider choice are confirmed.
 
-The first real provider should be an OpenAI adapter using the Responses API with default model `gpt-5.4-mini`. Runs should store `provider = openai` and the exact model id used. The adapter should read credentials from environment configuration and should not leak API keys, rendered prompts, or raw provider responses into logs.
+The first real provider is an OpenAI adapter using the Responses API with default model `gpt-5.4-mini`. Runs should store `provider = openai` and the exact model id used. The adapter reads `OPENAI_API_KEY` from environment configuration, supports optional `OPENAI_MODEL` fallback when a run model is blank, and should not leak API keys, rendered prompts, or raw provider responses into logs.
 
 Phase 1 run execution is synchronous and non-streaming, but it still follows the durable lifecycle: validate pending run, build context, mark running, call provider adapter, persist exactly one assistant message on success, then mark succeeded or failed.
 
@@ -287,6 +287,15 @@ npm run build
 npm test
 npm run test:integration
 ```
+
+OpenAI runtime configuration:
+
+```bash
+OPENAI_API_KEY="..."
+OPENAI_MODEL="gpt-5.4-mini"
+```
+
+`OPENAI_API_KEY` is required only when executing runs with `provider = openai`. Local tests use the `stub` provider or mocked OpenAI client paths and should not call the real OpenAI API.
 
 `npm run db:up` starts the local Docker PostgreSQL service. It maps container port `5432` to host port `15432` to avoid colliding with common local PostgreSQL installs.
 

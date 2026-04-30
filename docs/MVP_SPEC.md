@@ -29,11 +29,11 @@ Implemented in Phase 1:
 - Non-streaming run execution endpoint backed by durable Run status transitions.
 - ContextBuilder v0 service that prepares provider messages from the current node thread, selected branch text, and ancestor branch references.
 - Run execution now creates or refreshes the run's `ContextSnapshot` before calling the provider.
+- OpenAI provider adapter using the Responses API, with default real model `gpt-5.4-mini` and mocked unit coverage.
 
 Not implemented in Phase 1:
 
 - Frontend canvas.
-- Real AI provider integration.
 - Export/import.
 
 ### Included Features
