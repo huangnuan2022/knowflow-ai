@@ -42,6 +42,9 @@ Started in Phase 2:
 - Vite React + TypeScript frontend package.
 - React Flow canvas adapter for rendering domain nodes and edges.
 - Frontend domain API client for projects, graphs, nodes, and edges.
+- Minimal workspace manager for switching, creating, and editing projects and graphs through existing CRUD boundaries.
+- Active project and graph selection persisted with URL query parameters and localStorage for local/demo use.
+- Union Find / Path Compression demo seeding happens only when no project exists.
 - Manual node creation.
 - Manual edge creation.
 - Node movement with layout persistence.
@@ -153,6 +156,13 @@ Not implemented in Phase 3:
 
 ### Acceptance Criteria
 
+- A user can switch between existing projects and existing graphs from the workspace header.
+- A user can create a new project and receive a blank starter graph for that project.
+- A user can create a new graph inside the active project.
+- A user can edit the active project title, active project description, and active graph title.
+- The active project and graph survive browser refresh through URL query parameters and localStorage.
+- If the requested project or graph no longer exists, the UI falls back to a valid project and graph.
+- The Union Find / Path Compression demo project and graph are seeded only when the backend has no projects.
 - A user can create a project and graph.
 - A user can create a root conversation node.
 - A user can ask AI a question inside the node.

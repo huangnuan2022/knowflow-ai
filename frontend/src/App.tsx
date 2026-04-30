@@ -1,8 +1,8 @@
 import {
   Background,
   Connection,
-  ConnectionMode,
   ConnectionLineType,
+  ConnectionMode,
   Controls,
   MiniMap,
   NodeChange,
@@ -16,21 +16,26 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import { AlertTriangle, Plus, RefreshCw, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ChangeEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ConversationNode } from './components/ConversationNode';
 import { ConversationPanel } from './components/ConversationPanel';
 import { EditableEdge } from './components/EditableEdge';
 import {
+  createGraph,
   createManualEdge,
   createNode,
+  createProject,
   deleteEdge,
   deleteNode,
   loadGraphBundle,
   updateEdgeLabel,
+  updateGraph,
   updateNodeDetails,
   updateNodeLayout,
+  updateProject,
+  WorkspaceSelection,
 } from './lib/api';
-import { DomainEdge, GraphBundle, NodeLayout } from './lib/domain';
+import { DomainEdge, Graph, GraphBundle, NodeLayout, Project } from './lib/domain';
 import {
   ConversationFlowEdge,
   ConversationFlowNode,
@@ -47,6 +52,8 @@ const edgeTypes = {
   editable: EditableEdge,
 };
 
+const WORKSPACE_SELECTION_STORAGE_KEY = 'knowflow.activeWorkspace';
+
 export function App() {
   return (
     <ReactFlowProvider>
@@ -56,6 +63,7 @@ export function App() {
 }
 
 function KnowFlowCanvas() {
+  const [workspaceSelection, setWorkspaceSelection] = useState<WorkspaceSelection>(() => readInitialWorkspaceSelection());
   const [bundle, setBundle] = useState<GraphBundle | null>(null);
   const [nodes, setNodes] = useNodesState<ConversationFlowNode>([]);
   const [edges, setEdges] = useEdgesState<ConversationFlowEdge>([]);
@@ -63,6 +71,9 @@ function KnowFlowCanvas() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [projectTitleDraft, setProjectTitleDraft] = useState('');
+  const [projectDescriptionDraft, setProjectDescriptionDraft] = useState('');
+  const [graphTitleDraft, setGraphTitleDraft] = useState('');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const [pendingDeleteNodeIds, setPendingDeleteNodeIds] = useState<string[]>([]);
   const [pendingFocusNodeId, setPendingFocusNodeId] = useState<string | null>(null);
@@ -76,12 +87,27 @@ function KnowFlowCanvas() {
   const isNodeDraggingRef = useRef(false);
   const canvasFrameRef = useRef<HTMLElement>(null);
 
-  const refresh = useCallback(async () => {
+  const clearCanvasFocus = useCallback(() => {
+    setSelectedNodeId(null);
+    setPendingBranchView(null);
+    setPendingFocusNodeId(null);
+    setVisibleBranchHighlightIdsByNodeId({});
+  }, []);
+
+  const refresh = useCallback(async (selectionOverride?: WorkspaceSelection) => {
     setIsLoading(true);
     setError(null);
     try {
-      const nextBundle = await loadGraphBundle();
+      const nextBundle = await loadGraphBundle(selectionOverride ?? workspaceSelection);
+      const nextSelection = {
+        graphId: nextBundle.activeGraph.id,
+        projectId: nextBundle.activeProject.id,
+      };
       setBundle(nextBundle);
+      setWorkspaceSelection((currentSelection) =>
+        workspaceSelectionsEqual(currentSelection, nextSelection) ? currentSelection : nextSelection,
+      );
+      persistWorkspaceSelection(nextSelection);
       return nextBundle;
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Unable to load graph');
@@ -89,7 +115,7 @@ function KnowFlowCanvas() {
     } finally {
       setIsLoading(false);
     }
-  }, [setEdges]);
+  }, [workspaceSelection]);
 
   useEffect(() => {
     void refresh();
@@ -120,6 +146,176 @@ function KnowFlowCanvas() {
       setSelectedNodeId(null);
     }
   }, [bundle, selectedNodeId]);
+
+  useEffect(() => {
+    setProjectTitleDraft(bundle?.activeProject.title ?? '');
+    setProjectDescriptionDraft(bundle?.activeProject.description ?? '');
+    setGraphTitleDraft(bundle?.activeGraph.title ?? '');
+  }, [
+    bundle?.activeGraph.id,
+    bundle?.activeGraph.title,
+    bundle?.activeProject.description,
+    bundle?.activeProject.id,
+    bundle?.activeProject.title,
+  ]);
+
+  const onWorkspaceProjectChanged = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      const nextSelection = { graphId: null, projectId: event.target.value };
+      clearCanvasFocus();
+      setWorkspaceSelection(nextSelection);
+      persistWorkspaceSelection(nextSelection);
+    },
+    [clearCanvasFocus],
+  );
+
+  const onWorkspaceGraphChanged = useCallback(
+    (event: ChangeEvent<HTMLSelectElement>) => {
+      if (!bundle) {
+        return;
+      }
+
+      const nextSelection = {
+        graphId: event.target.value,
+        projectId: bundle.activeProject.id,
+      };
+      clearCanvasFocus();
+      setWorkspaceSelection(nextSelection);
+      persistWorkspaceSelection(nextSelection);
+    },
+    [bundle, clearCanvasFocus],
+  );
+
+  const onCreateProject = useCallback(async () => {
+    const nextProjectNumber = (bundle?.projects.length ?? 0) + 1;
+
+    setIsSaving(true);
+    setError(null);
+    try {
+      const project = await createProject({
+        description: '',
+        title: `Untitled Project ${nextProjectNumber}`,
+      });
+      const graph = await createGraph({
+        projectId: project.id,
+        title: 'Untitled Graph',
+      });
+      clearCanvasFocus();
+      await refresh({ graphId: graph.id, projectId: project.id });
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : 'Unable to create project');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [bundle?.projects.length, clearCanvasFocus, refresh]);
+
+  const onCreateGraph = useCallback(async () => {
+    if (!bundle) {
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+    try {
+      const graph = await createGraph({
+        projectId: bundle.activeProject.id,
+        title: `Untitled Graph ${bundle.graphs.length + 1}`,
+      });
+      clearCanvasFocus();
+      await refresh({ graphId: graph.id, projectId: bundle.activeProject.id });
+    } catch (createError) {
+      setError(createError instanceof Error ? createError.message : 'Unable to create graph');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [bundle, clearCanvasFocus, refresh]);
+
+  const saveProjectTitle = useCallback(async () => {
+    if (!bundle) {
+      return;
+    }
+
+    const nextTitle = projectTitleDraft.trim();
+    if (!nextTitle) {
+      setProjectTitleDraft(bundle.activeProject.title);
+      return;
+    }
+    if (nextTitle === bundle.activeProject.title) {
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+    try {
+      const project = await updateProject(bundle.activeProject.id, { title: nextTitle });
+      setBundle((currentBundle) => (currentBundle ? mergeProjectIntoBundle(currentBundle, project) : currentBundle));
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Unable to save project title');
+      setProjectTitleDraft(bundle.activeProject.title);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [bundle, projectTitleDraft]);
+
+  const saveProjectDescription = useCallback(async () => {
+    if (!bundle) {
+      return;
+    }
+
+    const nextDescription = projectDescriptionDraft.trim();
+    const currentDescription = (bundle.activeProject.description ?? '').trim();
+    if (nextDescription === currentDescription) {
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+    try {
+      const project = await updateProject(bundle.activeProject.id, {
+        description: nextDescription.length > 0 ? nextDescription : null,
+      });
+      setBundle((currentBundle) => (currentBundle ? mergeProjectIntoBundle(currentBundle, project) : currentBundle));
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Unable to save project description');
+      setProjectDescriptionDraft(bundle.activeProject.description ?? '');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [bundle, projectDescriptionDraft]);
+
+  const saveGraphTitle = useCallback(async () => {
+    if (!bundle) {
+      return;
+    }
+
+    const nextTitle = graphTitleDraft.trim();
+    if (!nextTitle) {
+      setGraphTitleDraft(bundle.activeGraph.title);
+      return;
+    }
+    if (nextTitle === bundle.activeGraph.title) {
+      return;
+    }
+
+    setIsSaving(true);
+    setError(null);
+    try {
+      const graph = await updateGraph(bundle.activeGraph.id, { title: nextTitle });
+      setBundle((currentBundle) => (currentBundle ? mergeGraphIntoBundle(currentBundle, graph) : currentBundle));
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : 'Unable to save graph title');
+      setGraphTitleDraft(bundle.activeGraph.title);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [bundle, graphTitleDraft]);
+
+  const onWorkspaceInputKeyDown = useCallback((event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      event.currentTarget.blur();
+    }
+  }, []);
 
   const deleteNodesByIds = useCallback(
     async (nodeIds: string[]) => {
@@ -542,9 +738,87 @@ function KnowFlowCanvas() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <div className="topbar__title">
-          <span>{projectTitle}</span>
-          <h1>{graphTitle}</h1>
+        <div className="workspace-manager" aria-label="Workspace">
+          <div className="workspace-manager__row">
+            <span className="workspace-manager__label">Project</span>
+            <select
+              aria-label="Switch project"
+              className="workspace-manager__select"
+              disabled={!bundle || isLoading}
+              onChange={onWorkspaceProjectChanged}
+              value={bundle?.activeProject.id ?? ''}
+            >
+              {bundle?.projects.map((project) => (
+                <option key={project.id} value={project.id}>
+                  {project.title}
+                </option>
+              ))}
+            </select>
+            <input
+              aria-label="Project title"
+              className="workspace-manager__input workspace-manager__input--title"
+              disabled={!bundle || isSaving}
+              onBlur={() => void saveProjectTitle()}
+              onChange={(event) => setProjectTitleDraft(event.target.value)}
+              onKeyDown={onWorkspaceInputKeyDown}
+              placeholder={projectTitle}
+              value={projectTitleDraft}
+            />
+            <button
+              className="secondary-button"
+              disabled={isSaving || isLoading}
+              onClick={() => void onCreateProject()}
+              type="button"
+            >
+              <Plus size={15} />
+              Project
+            </button>
+          </div>
+          <div className="workspace-manager__row">
+            <span className="workspace-manager__label">Graph</span>
+            <select
+              aria-label="Switch graph"
+              className="workspace-manager__select"
+              disabled={!bundle || isLoading}
+              onChange={onWorkspaceGraphChanged}
+              value={bundle?.activeGraph.id ?? ''}
+            >
+              {bundle?.graphs.map((graph) => (
+                <option key={graph.id} value={graph.id}>
+                  {graph.title}
+                </option>
+              ))}
+            </select>
+            <input
+              aria-label="Graph title"
+              className="workspace-manager__input workspace-manager__input--title"
+              disabled={!bundle || isSaving}
+              onBlur={() => void saveGraphTitle()}
+              onChange={(event) => setGraphTitleDraft(event.target.value)}
+              onKeyDown={onWorkspaceInputKeyDown}
+              placeholder={graphTitle}
+              value={graphTitleDraft}
+            />
+            <button
+              className="secondary-button"
+              disabled={!bundle || isSaving || isLoading}
+              onClick={() => void onCreateGraph()}
+              type="button"
+            >
+              <Plus size={15} />
+              Graph
+            </button>
+          </div>
+          <input
+            aria-label="Project description"
+            className="workspace-manager__input workspace-manager__input--description"
+            disabled={!bundle || isSaving}
+            onBlur={() => void saveProjectDescription()}
+            onChange={(event) => setProjectDescriptionDraft(event.target.value)}
+            onKeyDown={onWorkspaceInputKeyDown}
+            placeholder="Project description"
+            value={projectDescriptionDraft}
+          />
         </div>
         <div className="topbar__actions">
           <span className="status-pill">{statusText}</span>
@@ -740,6 +1014,67 @@ function mergeNodeLayoutIntoBundle(bundle: GraphBundle, nodeId: string, layout: 
   };
 }
 
+function mergeProjectIntoBundle(bundle: GraphBundle, project: Project): GraphBundle {
+  return {
+    ...bundle,
+    activeProject: bundle.activeProject.id === project.id ? project : bundle.activeProject,
+    projects: bundle.projects.map((existingProject) => (existingProject.id === project.id ? project : existingProject)),
+  };
+}
+
+function mergeGraphIntoBundle(bundle: GraphBundle, graph: Graph): GraphBundle {
+  return {
+    ...bundle,
+    activeGraph: bundle.activeGraph.id === graph.id ? graph : bundle.activeGraph,
+    graphs: bundle.graphs.map((existingGraph) => (existingGraph.id === graph.id ? graph : existingGraph)),
+  };
+}
+
 function arraysEqual(left: string[], right: string[]) {
   return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function readInitialWorkspaceSelection(): WorkspaceSelection {
+  const queryParams = new URLSearchParams(window.location.search);
+  const querySelection = {
+    graphId: queryParams.get('graphId'),
+    projectId: queryParams.get('projectId'),
+  };
+
+  if (querySelection.projectId || querySelection.graphId) {
+    return querySelection;
+  }
+
+  try {
+    const storedSelection = localStorage.getItem(WORKSPACE_SELECTION_STORAGE_KEY);
+    return storedSelection ? (JSON.parse(storedSelection) as WorkspaceSelection) : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistWorkspaceSelection(selection: WorkspaceSelection) {
+  try {
+    localStorage.setItem(WORKSPACE_SELECTION_STORAGE_KEY, JSON.stringify(selection));
+  } catch {
+    // Local storage can be unavailable in private or restricted browser contexts.
+  }
+
+  const url = new URL(window.location.href);
+  updateSearchParam(url, 'projectId', selection.projectId);
+  updateSearchParam(url, 'graphId', selection.graphId);
+  window.history.replaceState(null, '', url);
+}
+
+function updateSearchParam(url: URL, key: string, value?: string | null) {
+  if (value) {
+    url.searchParams.set(key, value);
+    return;
+  }
+
+  url.searchParams.delete(key);
+}
+
+function workspaceSelectionsEqual(left: WorkspaceSelection, right: WorkspaceSelection) {
+  return (left.projectId ?? null) === (right.projectId ?? null) && (left.graphId ?? null) === (right.graphId ?? null);
 }

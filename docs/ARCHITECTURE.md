@@ -50,6 +50,9 @@ Current frontend artifacts:
 
 Canvas-first interaction rule:
 
+- The topbar owns the minimal v0 workspace manager: switch project, switch graph, create project, create graph, and edit the active project/graph metadata through existing backend CRUD boundaries.
+- Active project and graph selection is frontend navigation state, not authorization state. For v0 it can be persisted in URL query parameters plus localStorage so refreshes and shared local URLs reopen the same graph.
+- The Union Find / Path Compression seeded demo should be created only when the backend has no projects. New user-created projects may get a blank starter graph, but should not receive demo content.
 - The expanded canvas node is the primary place to read, ask, select AI response text, and branch.
 - The right sidebar should not be required for the core branch workflow; it is an alternative reader/inspector.
 - The collapsed canvas node should be a compact navigation object: title, summary, and branch points only. Message text, inline highlights, ask controls, and title/summary editing are reserved for the expanded/focused node so collapsed cards remain easy to drag and scan.

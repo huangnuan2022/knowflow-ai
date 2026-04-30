@@ -20,11 +20,29 @@ const CONTEXT_POLICY_VERSION = 'current-node-selected-ancestor-v0';
 
 type RequestBody = Record<string, unknown>;
 
-export async function loadGraphBundle(): Promise<GraphBundle> {
+export type WorkspaceSelection = {
+  graphId?: string | null;
+  projectId?: string | null;
+};
+
+export async function loadGraphBundle(selection: WorkspaceSelection = {}): Promise<GraphBundle> {
   const projects = await get<Project[]>('/projects');
-  const activeProject = projects[0] ?? (await createProject());
+  const activeProject =
+    projects.find((project) => project.id === selection.projectId) ??
+    projects[0] ??
+    (await createProject({
+      description: 'Local KnowFlow workspace',
+      title: 'KnowFlow Demo Project',
+    }));
   const graphs = await get<Graph[]>(`/graphs?projectId=${activeProject.id}`);
-  const activeGraph = graphs[0] ?? (await createGraph(activeProject.id));
+  const activeGraph =
+    graphs.find((graph) => graph.id === selection.graphId) ??
+    graphs[0] ??
+    (await createGraph({
+      projectId: activeProject.id,
+      title: projects.length === 0 ? 'Union Find / Path Compression' : 'Untitled Graph',
+    }));
+  const activeProjectGraphs = graphs.some((graph) => graph.id === activeGraph.id) ? graphs : [...graphs, activeGraph];
   const [nodes, edges] = await Promise.all([
     get<DomainNode[]>(`/nodes?graphId=${activeGraph.id}`),
     get<DomainEdge[]>(`/edges?graphId=${activeGraph.id}`),
@@ -36,12 +54,40 @@ export async function loadGraphBundle(): Promise<GraphBundle> {
     activeGraph,
     activeProject,
     edges,
-    graphs,
+    graphs: activeProjectGraphs,
     highlightsByMessageId,
     messagesByNodeId,
     nodes,
     projects: projects.length > 0 ? projects : [activeProject],
   };
+}
+
+export async function createProject(input: { description?: string | null; title: string }) {
+  return post<Project>('/projects', {
+    description: input.description ?? null,
+    title: input.title,
+  });
+}
+
+export async function updateProject(
+  projectId: string,
+  input: {
+    description?: string | null;
+    title?: string;
+  },
+) {
+  return patch<Project>(`/projects/${projectId}`, input);
+}
+
+export async function createGraph(input: { projectId: string; title: string }) {
+  return post<Graph>('/graphs', {
+    projectId: input.projectId,
+    title: input.title,
+  });
+}
+
+export async function updateGraph(graphId: string, input: { title?: string }) {
+  return patch<Graph>(`/graphs/${graphId}`, input);
 }
 
 export async function createNode(input: {
@@ -151,20 +197,6 @@ export async function createBranchFromSelection(input: {
     selectedTextSnapshot: input.selectedTextSnapshot,
     sourceHighlightId: input.sourceHighlightId,
     startOffset: input.startOffset,
-  });
-}
-
-async function createProject() {
-  return post<Project>('/projects', {
-    description: 'Local KnowFlow workspace',
-    title: 'KnowFlow Demo Project',
-  });
-}
-
-async function createGraph(projectId: string) {
-  return post<Graph>('/graphs', {
-    projectId,
-    title: 'Union Find / Path Compression',
   });
 }
 

@@ -32,8 +32,8 @@ button {
   border-bottom: 1px solid #dfe3ea;
   display: flex;
   justify-content: space-between;
-  min-height: 72px;
-  padding: 14px 20px;
+  min-height: 96px;
+  padding: 12px 20px;
 }
 
 .topbar__title {
@@ -61,6 +61,72 @@ button {
   gap: 10px;
 }
 
+.workspace-manager {
+  align-content: center;
+  display: grid;
+  gap: 6px;
+  max-width: min(980px, calc(100vw - 520px));
+  min-width: 0;
+}
+
+.workspace-manager__row {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 54px minmax(160px, 220px) minmax(220px, 380px) auto;
+  min-width: 0;
+}
+
+.workspace-manager__label {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.workspace-manager__select,
+.workspace-manager__input {
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 7px;
+  color: #111827;
+  font: inherit;
+  font-size: 13px;
+  height: 32px;
+  min-width: 0;
+}
+
+.workspace-manager__select {
+  cursor: pointer;
+  padding: 0 8px;
+}
+
+.workspace-manager__input {
+  padding: 0 9px;
+}
+
+.workspace-manager__input--title {
+  font-weight: 650;
+}
+
+.workspace-manager__input--description {
+  color: #475569;
+  grid-column: 2 / 4;
+}
+
+.workspace-manager__select:focus,
+.workspace-manager__input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.14);
+  outline: none;
+}
+
+.workspace-manager__select:disabled,
+.workspace-manager__input:disabled {
+  cursor: not-allowed;
+  opacity: 0.62;
+}
+
 .status-pill {
   background: #ecfdf5;
   border: 1px solid #a7f3d0;
@@ -72,7 +138,8 @@ button {
 }
 
 .icon-button,
-.primary-button {
+.primary-button,
+.secondary-button {
   align-items: center;
   border: 1px solid #cbd5e1;
   border-radius: 8px;
@@ -98,6 +165,23 @@ button {
   padding: 0 14px;
 }
 
+.secondary-button {
+  background: #ffffff;
+  color: #334155;
+  font-size: 13px;
+  font-weight: 650;
+  padding: 0 10px;
+  white-space: nowrap;
+}
+
+.secondary-button:hover,
+.secondary-button:focus {
+  border-color: #94a3b8;
+  box-shadow: 0 0 0 3px rgb(148 163 184 / 0.14);
+  outline: none;
+}
+
+.secondary-button:disabled,
 .primary-button:disabled {
   cursor: not-allowed;
   opacity: 0.55;
