@@ -44,7 +44,7 @@ Current frontend artifacts:
 - `frontend/src/lib/api.ts` calls backend domain endpoints and seeds a local demo project/graph when none exists.
 - `frontend/src/lib/textSelection.ts` reads plain-text DOM selection offsets for v0 branch creation.
 - `frontend/src/components/ConversationNode.tsx` renders the React Flow node shell.
-- `frontend/src/components/ConversationPanel.tsx` renders selected-node messages, starts non-streaming runs, and calls the branch-from-selection command through backend APIs.
+- `frontend/src/components/ConversationPanel.tsx` renders selected-node messages, persisted highlights, child branch context, non-streaming runs, and branch-from-selection commands through backend APIs.
 - `frontend/src/App.tsx` owns canvas state, manual node creation, manual edge creation, layout persistence, and selected-node panel wiring.
 
 ## Rich Text And Selection Direction

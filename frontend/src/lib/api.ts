@@ -4,6 +4,7 @@ import {
   DomainNode,
   Graph,
   GraphBundle,
+  Highlight,
   Message,
   NodeLayout,
   Project,
@@ -67,6 +68,10 @@ export async function createManualEdge(input: { graphId: string; sourceNodeId: s
 
 export async function getMessages(nodeId: string) {
   return get<Message[]>(`/messages?nodeId=${nodeId}`);
+}
+
+export async function getHighlights(messageId: string) {
+  return get<Highlight[]>(`/highlights?messageId=${messageId}`);
 }
 
 export async function createUserMessage(input: { nodeId: string; content: string }) {

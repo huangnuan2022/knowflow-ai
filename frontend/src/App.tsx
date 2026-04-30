@@ -18,7 +18,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConversationNode } from './components/ConversationNode';
 import { ConversationPanel } from './components/ConversationPanel';
 import { createManualEdge, createNode, loadGraphBundle, updateNodeLayout } from './lib/api';
-import { GraphBundle } from './lib/domain';
+import { DomainEdge, GraphBundle } from './lib/domain';
 import { ConversationFlowNode, toReactFlowEdges, toReactFlowNodes } from './lib/reactFlowAdapter';
 
 const nodeTypes = {
@@ -70,6 +70,10 @@ function KnowFlowCanvas() {
   const selectedNode = useMemo(
     () => bundle?.nodes.find((node) => node.id === selectedNodeId),
     [bundle?.nodes, selectedNodeId],
+  );
+  const selectedNodeBranchContext = useMemo(
+    () => findInboundBranchContext(bundle?.edges, selectedNodeId),
+    [bundle?.edges, selectedNodeId],
   );
 
   useEffect(() => {
@@ -223,10 +227,30 @@ function KnowFlowCanvas() {
             <Controls />
           </ReactFlow>
         </section>
-        <ConversationPanel node={selectedNode} onBranchCreated={onBranchCreated} />
+        <ConversationPanel
+          branchContext={selectedNodeBranchContext}
+          node={selectedNode}
+          onBranchCreated={onBranchCreated}
+        />
       </div>
     </main>
   );
+}
+
+function findInboundBranchContext(edges: DomainEdge[] | undefined, selectedNodeId: string | null) {
+  if (!edges || !selectedNodeId) {
+    return undefined;
+  }
+
+  const inboundBranch = edges.find((edge) => edge.targetNodeId === selectedNodeId && edge.type === 'BRANCH');
+  if (!inboundBranch?.label) {
+    return undefined;
+  }
+
+  return {
+    sourceNodeId: inboundBranch.sourceNodeId,
+    text: inboundBranch.label,
+  };
 }
 
 function isCompletedPositionChange(

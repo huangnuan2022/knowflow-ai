@@ -66,6 +66,8 @@ Started in Phase 3:
 - Assistant-message text selection in the conversation panel.
 - Branch action that calls the transactional `POST /api/branches/from-selection` backend command.
 - Graph refresh and automatic child-node selection after a branch is created.
+- Context chip for a child branch showing the selected text that created the branch.
+- Visual highlight rendering for persisted branch selections when viewing the source message.
 
 Not implemented in Phase 3:
 
@@ -73,8 +75,8 @@ Not implemented in Phase 3:
 - Run retry, cancellation, or streaming.
 - Node title and summary editing from the frontend.
 - Real-provider model selection UI.
-- Visual highlight rendering after refresh.
-- Context chips for the new child branch.
+- Batched highlight loading.
+- Context chip controls for adding or removing graph context.
 
 ### Included Features
 

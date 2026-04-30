@@ -1,20 +1,36 @@
 import { Bot, GitBranch, Loader2, Send, UserRound } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { createBranchFromSelection, createRun, createUserMessage, executeRun, getMessages } from '../lib/api';
-import { DomainNode, Message, NodeLayout } from '../lib/domain';
+import {
+  createBranchFromSelection,
+  createRun,
+  createUserMessage,
+  executeRun,
+  getHighlights,
+  getMessages,
+} from '../lib/api';
+import { DomainNode, Highlight, Message, NodeLayout } from '../lib/domain';
 import { readTextSelectionWithin, TextSelectionRange } from '../lib/textSelection';
 
 type ConversationPanelProps = {
+  branchContext?: BranchContext;
   node?: DomainNode;
   onBranchCreated?: (childNodeId: string) => Promise<void> | void;
+};
+
+type BranchContext = {
+  sourceNodeId: string;
+  text: string;
 };
 
 type BranchSelectionDraft = TextSelectionRange & {
   messageId: string;
 };
 
-export function ConversationPanel({ node, onBranchCreated }: ConversationPanelProps) {
+type HighlightsByMessageId = Record<string, Highlight[]>;
+
+export function ConversationPanel({ branchContext, node, onBranchCreated }: ConversationPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [highlightsByMessageId, setHighlightsByMessageId] = useState<HighlightsByMessageId>({});
   const [draft, setDraft] = useState('');
   const [selectionDraft, setSelectionDraft] = useState<BranchSelectionDraft | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,13 +46,16 @@ export function ConversationPanel({ node, onBranchCreated }: ConversationPanelPr
   const refreshMessages = useCallback(async () => {
     if (!node) {
       setMessages([]);
+      setHighlightsByMessageId({});
       return;
     }
 
     setIsLoading(true);
     setError(null);
     try {
-      setMessages(await getMessages(node.id));
+      const nextMessages = await getMessages(node.id);
+      setMessages(nextMessages);
+      setHighlightsByMessageId(await loadHighlightsByMessageId(nextMessages));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Unable to load messages');
     } finally {
@@ -146,6 +165,13 @@ export function ConversationPanel({ node, onBranchCreated }: ConversationPanelPr
 
       {error ? <div className="conversation-panel__error">{error}</div> : null}
 
+      {branchContext ? (
+        <div className="context-chip" title={branchContext.text}>
+          <span>Context</span>
+          <p>{branchContext.text}</p>
+        </div>
+      ) : null}
+
       {selectionDraft ? (
         <div className="branch-selection">
           <div>
@@ -168,6 +194,7 @@ export function ConversationPanel({ node, onBranchCreated }: ConversationPanelPr
           <MessageBubble
             isSelectedForBranch={selectionDraft?.messageId === message.id}
             key={message.id}
+            highlights={highlightsByMessageId[message.id] ?? []}
             message={message}
             onAssistantSelection={onAssistantSelection}
           />
@@ -206,10 +233,12 @@ export function ConversationPanel({ node, onBranchCreated }: ConversationPanelPr
 
 function MessageBubble({
   isSelectedForBranch,
+  highlights,
   message,
   onAssistantSelection,
 }: {
   isSelectedForBranch: boolean;
+  highlights: Highlight[];
   message: Message;
   onAssistantSelection: (message: Message, element: HTMLElement) => void;
 }) {
@@ -244,11 +273,72 @@ function MessageBubble({
           ref={contentRef}
           tabIndex={isAssistant ? 0 : undefined}
         >
-          {message.content}
+          <HighlightedContent content={message.content} highlights={isAssistant ? highlights : []} />
         </div>
       </div>
     </article>
   );
+}
+
+function HighlightedContent({ content, highlights }: { content: string; highlights: Highlight[] }) {
+  const ranges = normalizeHighlights(content, highlights);
+  if (ranges.length === 0) {
+    return <>{content}</>;
+  }
+
+  const parts = [];
+  let cursor = 0;
+
+  for (const range of ranges) {
+    if (range.startOffset > cursor) {
+      parts.push(content.slice(cursor, range.startOffset));
+    }
+
+    parts.push(
+      <mark className="message-highlight" key={range.id}>
+        {content.slice(range.startOffset, range.endOffset)}
+      </mark>,
+    );
+    cursor = range.endOffset;
+  }
+
+  if (cursor < content.length) {
+    parts.push(content.slice(cursor));
+  }
+
+  return <>{parts}</>;
+}
+
+async function loadHighlightsByMessageId(messages: Message[]): Promise<HighlightsByMessageId> {
+  const assistantMessages = messages.filter((message) => message.role === 'ASSISTANT');
+  const entries = await Promise.all(
+    assistantMessages.map(async (message) => [message.id, await getHighlights(message.id)] as const),
+  );
+
+  return Object.fromEntries(entries);
+}
+
+function normalizeHighlights(content: string, highlights: Highlight[]) {
+  const ranges: Highlight[] = [];
+  let cursor = 0;
+
+  for (const highlight of [...highlights].sort((left, right) => left.startOffset - right.startOffset)) {
+    const startOffset = Math.max(0, Math.min(highlight.startOffset, content.length));
+    const endOffset = Math.max(startOffset, Math.min(highlight.endOffset, content.length));
+
+    if (endOffset <= startOffset || startOffset < cursor) {
+      continue;
+    }
+
+    ranges.push({
+      ...highlight,
+      endOffset,
+      startOffset,
+    });
+    cursor = endOffset;
+  }
+
+  return ranges;
 }
 
 function buildChildLayout(parentLayout?: NodeLayout | null): NodeLayout {
