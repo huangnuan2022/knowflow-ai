@@ -16,6 +16,7 @@ import {
 import { Plus, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ConversationNode } from './components/ConversationNode';
+import { ConversationPanel } from './components/ConversationPanel';
 import { createManualEdge, createNode, loadGraphBundle, updateNodeLayout } from './lib/api';
 import { GraphBundle } from './lib/domain';
 import { ConversationFlowNode, toReactFlowEdges, toReactFlowNodes } from './lib/reactFlowAdapter';
@@ -39,6 +40,7 @@ function KnowFlowCanvas() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
@@ -63,6 +65,16 @@ function KnowFlowCanvas() {
   const projectTitle = bundle?.activeProject.title ?? 'Workspace';
   const nodeCount = nodes.length;
   const edgeCount = edges.length;
+  const selectedNode = useMemo(
+    () => bundle?.nodes.find((node) => node.id === selectedNodeId),
+    [bundle?.nodes, selectedNodeId],
+  );
+
+  useEffect(() => {
+    if (selectedNodeId && bundle && !bundle.nodes.some((node) => node.id === selectedNodeId)) {
+      setSelectedNodeId(null);
+    }
+  }, [bundle, selectedNodeId]);
 
   const onNodesChange: OnNodesChange<ConversationFlowNode> = useCallback(
     (changes: NodeChange<ConversationFlowNode>[]) => {
@@ -104,6 +116,15 @@ function KnowFlowCanvas() {
         title: `Conversation ${nextNodeNumber}`,
       });
       setNodes((currentNodes: ConversationFlowNode[]) => [...currentNodes, ...toReactFlowNodes([node])]);
+      setBundle((currentBundle) =>
+        currentBundle
+          ? {
+              ...currentBundle,
+              nodes: [...currentBundle.nodes, node],
+            }
+          : currentBundle,
+      );
+      setSelectedNodeId(node.id);
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : 'Unable to create node');
     } finally {
@@ -126,6 +147,14 @@ function KnowFlowCanvas() {
           targetNodeId: connection.target,
         });
         setEdges((currentEdges: Edge[]) => [...currentEdges, ...toReactFlowEdges([edge])]);
+        setBundle((currentBundle) =>
+          currentBundle
+            ? {
+                ...currentBundle,
+                edges: [...currentBundle.edges, edge],
+              }
+            : currentBundle,
+        );
       } catch (connectError) {
         setError(connectError instanceof Error ? connectError.message : 'Unable to create edge');
       } finally {
@@ -166,21 +195,26 @@ function KnowFlowCanvas() {
 
       {error ? <div className="error-banner">{error}</div> : null}
 
-      <section className="canvas-frame" aria-label="KnowFlow graph canvas">
-        <ReactFlow
-          edges={edges}
-          fitView
-          minZoom={0.2}
-          nodeTypes={nodeTypes}
-          nodes={nodes}
-          onConnect={onConnect}
-          onNodesChange={onNodesChange}
-        >
-          <Background />
-          <MiniMap pannable zoomable />
-          <Controls />
-        </ReactFlow>
-      </section>
+      <div className="workspace">
+        <section className="canvas-frame" aria-label="KnowFlow graph canvas">
+          <ReactFlow
+            edges={edges}
+            fitView
+            minZoom={0.2}
+            nodeTypes={nodeTypes}
+            nodes={nodes}
+            onConnect={onConnect}
+            onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+            onNodesChange={onNodesChange}
+            onPaneClick={() => setSelectedNodeId(null)}
+          >
+            <Background />
+            <MiniMap pannable zoomable />
+            <Controls />
+          </ReactFlow>
+        </section>
+        <ConversationPanel node={selectedNode} />
+      </div>
     </main>
   );
 }

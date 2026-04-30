@@ -37,6 +37,15 @@ Frontend boundaries:
 - Prompt construction must not live in React components.
 - Provider-specific AI logic must not live in React components.
 
+Current frontend artifacts:
+
+- `frontend/src/lib/domain.ts` defines frontend domain DTOs separate from React Flow types.
+- `frontend/src/lib/reactFlowAdapter.ts` maps KnowFlow domain nodes and edges into React Flow nodes and edges.
+- `frontend/src/lib/api.ts` calls backend domain endpoints and seeds a local demo project/graph when none exists.
+- `frontend/src/components/ConversationNode.tsx` renders the React Flow node shell.
+- `frontend/src/components/ConversationPanel.tsx` renders selected-node messages and starts non-streaming runs through backend APIs.
+- `frontend/src/App.tsx` owns canvas state, manual node creation, manual edge creation, layout persistence, and selected-node panel wiring.
+
 ## Rich Text And Selection Direction
 
 MVP messages should be Markdown-rendered, selectable, and immutable after creation. Only node title and node summary may be editable in v0.
@@ -306,6 +315,16 @@ OPENAI_MODEL="gpt-5.4-mini"
 `OPENAI_API_KEY` is required only when executing runs with `provider = openai`. Local tests use the `stub` provider or mocked OpenAI client paths and should not call the real OpenAI API.
 
 Frontend local development uses `http://localhost:5173` by default. The backend allows this origin through `CORS_ORIGIN`; set a comma-separated `CORS_ORIGIN` value when using another Vite port or host.
+
+Frontend runtime configuration:
+
+```bash
+VITE_API_BASE_URL="http://localhost:3000/api"
+VITE_AI_PROVIDER="stub"
+VITE_AI_MODEL="stub-tutor-v0"
+```
+
+The frontend defaults to the deterministic `stub` provider for local demos. Real provider secrets stay on the backend; the frontend must not receive or store `OPENAI_API_KEY`.
 
 `npm run db:up` starts the local Docker PostgreSQL service. It maps container port `5432` to host port `15432` to avoid colliding with common local PostgreSQL installs.
 

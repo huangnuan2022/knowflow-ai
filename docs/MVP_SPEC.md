@@ -54,6 +54,24 @@ Not implemented in Phase 2:
 - Collaboration.
 - Export/import.
 
+### Phase 3 Conversation UI Status
+
+Started in Phase 3:
+
+- Selected-node conversation panel in the React frontend.
+- Message loading for the selected conversation node.
+- User message creation from the frontend.
+- Non-streaming Run creation and execution through the existing provider-neutral backend API.
+- Local frontend defaults to `provider = stub` and `model = stub-tutor-v0` so the UI can be exercised without an API key.
+
+Not implemented in Phase 3:
+
+- Text selection and branch UI.
+- Markdown rendering beyond plain selectable text display.
+- Run retry, cancellation, or streaming.
+- Node title and summary editing from the frontend.
+- Real-provider model selection UI.
+
 ### Included Features
 
 - Single-user local/demo usage.

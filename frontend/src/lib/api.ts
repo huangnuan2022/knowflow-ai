@@ -1,6 +1,20 @@
-import { DomainEdge, DomainNode, Graph, GraphBundle, NodeLayout, Project } from './domain';
+import {
+  DomainEdge,
+  DomainNode,
+  Graph,
+  GraphBundle,
+  Message,
+  NodeLayout,
+  Project,
+  Run,
+  RunExecutionResult,
+} from './domain';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api';
+const DEFAULT_AI_PROVIDER = import.meta.env.VITE_AI_PROVIDER ?? 'stub';
+const DEFAULT_AI_MODEL = import.meta.env.VITE_AI_MODEL ?? 'stub-tutor-v0';
+const PROMPT_TEMPLATE_VERSION = 'knowflow-tutor-v0';
+const CONTEXT_POLICY_VERSION = 'current-node-selected-ancestor-v0';
 
 type RequestBody = Record<string, unknown>;
 
@@ -48,6 +62,38 @@ export async function createManualEdge(input: { graphId: string; sourceNodeId: s
     targetNodeId: input.targetNodeId,
     type: 'MANUAL',
   });
+}
+
+export async function getMessages(nodeId: string) {
+  return get<Message[]>(`/messages?nodeId=${nodeId}`);
+}
+
+export async function createUserMessage(input: { nodeId: string; content: string }) {
+  return post<Message>('/messages', {
+    content: input.content,
+    nodeId: input.nodeId,
+    role: 'USER',
+  });
+}
+
+export async function createRun(input: {
+  nodeId: string;
+  provider?: string;
+  model?: string;
+  promptTemplateVersion?: string;
+  contextPolicyVersion?: string;
+}) {
+  return post<Run>('/runs', {
+    contextPolicyVersion: input.contextPolicyVersion ?? CONTEXT_POLICY_VERSION,
+    model: input.model ?? DEFAULT_AI_MODEL,
+    nodeId: input.nodeId,
+    promptTemplateVersion: input.promptTemplateVersion ?? PROMPT_TEMPLATE_VERSION,
+    provider: input.provider ?? DEFAULT_AI_PROVIDER,
+  });
+}
+
+export async function executeRun(runId: string) {
+  return post<RunExecutionResult>(`/runs/${runId}/execute`, {});
 }
 
 async function createProject() {

@@ -41,6 +41,44 @@ export type DomainEdge = {
   sourceHighlightId?: string | null;
 };
 
+export type MessageRole = 'USER' | 'ASSISTANT' | 'SYSTEM';
+
+export type Message = {
+  id: string;
+  nodeId: string;
+  role: MessageRole;
+  content: string;
+  sequence: number;
+  runId?: string | null;
+  tokenCount?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type RunStatus = 'PENDING' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'CANCELLED';
+
+export type Run = {
+  id: string;
+  nodeId: string;
+  status: RunStatus;
+  provider: string;
+  model: string;
+  promptTemplateVersion: string;
+  contextPolicyVersion: string;
+  errorCode?: string | null;
+  errorMessage?: string | null;
+  latencyMs?: number | null;
+  inputTokens?: number | null;
+  outputTokens?: number | null;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type RunExecutionResult = {
+  message: Message | null;
+  run: Run;
+};
+
 export type GraphBundle = {
   projects: Project[];
   activeProject: Project;
