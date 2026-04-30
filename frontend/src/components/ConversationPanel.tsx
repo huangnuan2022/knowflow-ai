@@ -16,6 +16,7 @@ type ConversationPanelProps = {
   node?: DomainNode;
   onBranchCreated?: (childNodeId: string) => Promise<void> | void;
   onNodeMessagesChanged?: () => Promise<void> | void;
+  readOnly?: boolean;
 };
 
 type BranchContext = {
@@ -34,6 +35,7 @@ export function ConversationPanel({
   node,
   onBranchCreated,
   onNodeMessagesChanged,
+  readOnly = false,
 }: ConversationPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [highlightsByMessageId, setHighlightsByMessageId] = useState<HighlightsByMessageId>({});
@@ -77,15 +79,22 @@ export function ConversationPanel({
     setSelectionDraft(null);
   }, [node?.id]);
 
-  const onAssistantSelection = useCallback((message: Message, element: HTMLElement) => {
-    const selection = readTextSelectionWithin(element, message.content);
-    setSelectionDraft(selection ? { ...selection, messageId: message.id } : null);
-  }, []);
+  const onAssistantSelection = useCallback(
+    (message: Message, element: HTMLElement) => {
+      if (readOnly) {
+        return;
+      }
+
+      const selection = readTextSelectionWithin(element, message.content);
+      setSelectionDraft(selection ? { ...selection, messageId: message.id } : null);
+    },
+    [readOnly],
+  );
 
   const onSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
-      if (!node || isSubmitting) {
+      if (!node || isSubmitting || readOnly) {
         return;
       }
 
@@ -120,11 +129,11 @@ export function ConversationPanel({
         setIsSubmitting(false);
       }
     },
-    [draft, isSubmitting, node, onNodeMessagesChanged, refreshMessages],
+    [draft, isSubmitting, node, onNodeMessagesChanged, readOnly, refreshMessages],
   );
 
   const onBranch = useCallback(async () => {
-    if (!node || !selectionDraft || isBranching) {
+    if (!node || !selectionDraft || isBranching || readOnly) {
       return;
     }
 
@@ -154,20 +163,23 @@ export function ConversationPanel({
     } finally {
       setIsBranching(false);
     }
-  }, [isBranching, node, onBranchCreated, selectionDraft]);
+  }, [isBranching, node, onBranchCreated, readOnly, selectionDraft]);
 
   if (!node) {
     return (
-      <aside className="conversation-panel">
+      <aside className={`conversation-panel ${readOnly ? 'conversation-panel--inspector' : ''}`}>
         <div className="conversation-panel__empty">Select a node</div>
       </aside>
     );
   }
 
   return (
-    <aside className="conversation-panel" aria-label="Conversation thread">
+    <aside
+      className={`conversation-panel ${readOnly ? 'conversation-panel--inspector' : ''}`}
+      aria-label={readOnly ? 'Conversation inspector' : 'Conversation thread'}
+    >
       <header className="conversation-panel__header">
-        <span>Conversation</span>
+        <span>{readOnly ? 'Inspector' : 'Conversation'}</span>
         <h2>{node.title}</h2>
       </header>
 
@@ -180,7 +192,7 @@ export function ConversationPanel({
         </div>
       ) : null}
 
-      {selectionDraft ? (
+      {!readOnly && selectionDraft ? (
         <div className="branch-selection">
           <div>
             <span>Selection</span>
@@ -202,6 +214,7 @@ export function ConversationPanel({
           <MessageBubble
             isSelectedForBranch={selectionDraft?.messageId === message.id}
             key={message.id}
+            enableBranching={!readOnly}
             highlights={highlightsByMessageId[message.id] ?? []}
             message={message}
             onAssistantSelection={onAssistantSelection}
@@ -217,34 +230,38 @@ export function ConversationPanel({
         ) : null}
       </div>
 
-      <form className="composer" onSubmit={onSubmit}>
-        <textarea
-          aria-label="Message"
-          disabled={isSubmitting}
-          onChange={(event) => setDraft(event.target.value)}
-          placeholder="Ask about this node"
-          rows={4}
-          value={draft}
-        />
-        <button
-          className="primary-button composer__submit"
-          disabled={isSubmitting || draft.trim().length === 0}
-          type="submit"
-        >
-          <Send size={17} />
-          Ask
-        </button>
-      </form>
+      {!readOnly ? (
+        <form className="composer" onSubmit={onSubmit}>
+          <textarea
+            aria-label="Message"
+            disabled={isSubmitting}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder="Ask about this node"
+            rows={4}
+            value={draft}
+          />
+          <button
+            className="primary-button composer__submit"
+            disabled={isSubmitting || draft.trim().length === 0}
+            type="submit"
+          >
+            <Send size={17} />
+            Ask
+          </button>
+        </form>
+      ) : null}
     </aside>
   );
 }
 
 function MessageBubble({
+  enableBranching,
   isSelectedForBranch,
   highlights,
   message,
   onAssistantSelection,
 }: {
+  enableBranching: boolean;
   isSelectedForBranch: boolean;
   highlights: Highlight[];
   message: Message;
@@ -262,10 +279,10 @@ function MessageBubble({
     .join(' ');
 
   const captureSelection = useCallback(() => {
-    if (isAssistant && contentRef.current) {
+    if (enableBranching && isAssistant && contentRef.current) {
       onAssistantSelection(message, contentRef.current);
     }
-  }, [isAssistant, message, onAssistantSelection]);
+  }, [enableBranching, isAssistant, message, onAssistantSelection]);
 
   return (
     <article className={bubbleClassName}>
@@ -279,7 +296,7 @@ function MessageBubble({
           onKeyUp={captureSelection}
           onMouseUp={captureSelection}
           ref={contentRef}
-          tabIndex={isAssistant ? 0 : undefined}
+          tabIndex={enableBranching && isAssistant ? 0 : undefined}
         >
           <HighlightedContent content={message.content} highlights={isAssistant ? highlights : []} />
         </div>

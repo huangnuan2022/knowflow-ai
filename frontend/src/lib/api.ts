@@ -30,12 +30,14 @@ export async function loadGraphBundle(): Promise<GraphBundle> {
     get<DomainEdge[]>(`/edges?graphId=${activeGraph.id}`),
   ]);
   const messagesByNodeId = await loadMessagesByNodeId(nodes);
+  const highlightsByMessageId = await loadHighlightsByMessageId(messagesByNodeId);
 
   return {
     activeGraph,
     activeProject,
     edges,
     graphs,
+    highlightsByMessageId,
     messagesByNodeId,
     nodes,
     projects: projects.length > 0 ? projects : [activeProject],
@@ -150,6 +152,17 @@ async function createGraph(projectId: string) {
 
 async function loadMessagesByNodeId(nodes: DomainNode[]) {
   const entries = await Promise.all(nodes.map(async (node) => [node.id, await getMessages(node.id)] as const));
+  return Object.fromEntries(entries);
+}
+
+async function loadHighlightsByMessageId(messagesByNodeId: Record<string, Message[]>) {
+  const assistantMessages = Object.values(messagesByNodeId)
+    .flat()
+    .filter((message) => message.role === 'ASSISTANT');
+  const entries = await Promise.all(
+    assistantMessages.map(async (message) => [message.id, await getHighlights(message.id)] as const),
+  );
+
   return Object.fromEntries(entries);
 }
 

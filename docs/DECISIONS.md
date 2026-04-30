@@ -40,6 +40,15 @@ This file records major product and architecture decisions. Update it whenever a
 - Future scalable alternative: Node-level summaries, collapsed threads, and thread navigation inside nodes.
 - Revisit trigger: Users cannot scan or manage long node threads.
 
+### 2026-04-30: Make Canvas Nodes The Primary Conversation Surface
+
+- Decision: Selected canvas nodes should expand into an inline conversation surface where users can read messages, ask follow-up questions, highlight assistant text, and branch from that selection. The right sidebar is a secondary inspector, not the main workflow surface.
+- Reason: KnowFlow's product wedge is visual learning flow. If the user must leave the canvas to ask or branch, the app feels like a chatbot with a decorative graph rather than a graph-based tutor workspace.
+- Tradeoff: Expanded nodes are more complex to render, and large conversations need collapse, summary, and scrolling behavior to avoid clutter.
+- Simpler MVP alternative: Keep all conversation and branching actions in a right-side panel.
+- Future scalable alternative: Multiple node display modes, focus-path reading, progressive message virtualization, and richer inline Markdown/code selection anchors.
+- Revisit trigger: Users find expanded nodes too cluttered, or canvas performance suffers before the 30-node v0 fixture.
+
 ### 2026-04-30: Use React Flow / xyflow For MVP Canvas Rendering
 
 - Decision: Use React Flow / xyflow as the initial canvas rendering library.

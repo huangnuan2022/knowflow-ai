@@ -43,9 +43,16 @@ Current frontend artifacts:
 - `frontend/src/lib/reactFlowAdapter.ts` maps KnowFlow domain nodes and edges into React Flow nodes, edge handles, and edges.
 - `frontend/src/lib/api.ts` calls backend domain endpoints and seeds a local demo project/graph when none exists.
 - `frontend/src/lib/textSelection.ts` reads plain-text DOM selection offsets for v0 branch creation.
-- `frontend/src/components/ConversationNode.tsx` renders the React Flow node shell, recent message previews, and branch highlight handles.
-- `frontend/src/components/ConversationPanel.tsx` renders selected-node messages, persisted highlights, child branch context, non-streaming runs, and branch-from-selection commands through backend APIs.
+- `frontend/src/components/ConversationNode.tsx` renders the React Flow node shell, collapsed message previews, expanded inline conversation threads, node-local ask controls, inline text selection, branch actions, and branch highlight handles.
+- `frontend/src/components/ConversationPanel.tsx` renders a secondary read-only inspector for the selected node's messages, persisted highlights, and child branch context.
 - `frontend/src/App.tsx` owns canvas state, manual node creation, manual edge creation, layout persistence, and selected-node panel wiring.
+
+Canvas-first interaction rule:
+
+- The expanded canvas node is the primary place to read, ask, select AI response text, and branch.
+- The right sidebar should not be required for the core branch workflow; it is an alternative reader/inspector.
+- User messages should appear as compact right-aligned bubbles, while assistant responses should read as broader prose inside the node.
+- Persisted highlights should render in place when possible, and branch edges should use source handles attached to those highlights. A collapsed node may fall back to stable highlight chips so existing edges still have visible handles.
 
 ## Rich Text And Selection Direction
 

@@ -48,7 +48,6 @@ function KnowFlowCanvas() {
     try {
       const nextBundle = await loadGraphBundle();
       setBundle(nextBundle);
-      setNodes(toReactFlowNodes(nextBundle.nodes, nextBundle));
       setEdges(toReactFlowEdges(nextBundle.edges));
       return nextBundle;
     } catch (loadError) {
@@ -57,7 +56,7 @@ function KnowFlowCanvas() {
     } finally {
       setIsLoading(false);
     }
-  }, [setEdges, setNodes]);
+  }, [setEdges]);
 
   useEffect(() => {
     void refresh();
@@ -121,14 +120,13 @@ function KnowFlowCanvas() {
         },
         title: `Conversation ${nextNodeNumber}`,
       });
-      setNodes((currentNodes: ConversationFlowNode[]) => [
-        ...currentNodes,
-        ...toReactFlowNodes([node], { edges: bundle.edges, messagesByNodeId: bundle.messagesByNodeId }),
-      ]);
       setBundle((currentBundle) =>
         currentBundle
           ? {
               ...currentBundle,
+              highlightsByMessageId: {
+                ...currentBundle.highlightsByMessageId,
+              },
               messagesByNodeId: {
                 ...currentBundle.messagesByNodeId,
                 [node.id]: [],
@@ -143,7 +141,7 @@ function KnowFlowCanvas() {
     } finally {
       setIsSaving(false);
     }
-  }, [bundle, nodes.length, setNodes]);
+  }, [bundle, nodes.length]);
 
   const onBranchCreated = useCallback(
     async (childNodeId: string) => {
@@ -156,6 +154,20 @@ function KnowFlowCanvas() {
   const onNodeMessagesChanged = useCallback(async () => {
     await refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!bundle) {
+      setNodes([]);
+      return;
+    }
+
+    setNodes(
+      toReactFlowNodes(bundle.nodes, bundle, {
+        onBranchCreated,
+        onNodeMessagesChanged,
+      }),
+    );
+  }, [bundle, onBranchCreated, onNodeMessagesChanged, setNodes]);
 
   const onConnect = useCallback(
     async (connection: Connection) => {
@@ -243,6 +255,7 @@ function KnowFlowCanvas() {
           node={selectedNode}
           onBranchCreated={onBranchCreated}
           onNodeMessagesChanged={onNodeMessagesChanged}
+          readOnly
         />
       </div>
     </main>

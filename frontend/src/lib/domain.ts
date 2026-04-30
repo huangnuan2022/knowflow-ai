@@ -115,4 +115,5 @@ export type GraphBundle = {
   nodes: DomainNode[];
   edges: DomainEdge[];
   messagesByNodeId: Record<string, Message[]>;
+  highlightsByMessageId: Record<string, Highlight[]>;
 };

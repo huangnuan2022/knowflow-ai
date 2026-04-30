@@ -2,6 +2,12 @@ export type TextSelectionRange = {
   startOffset: number;
   endOffset: number;
   selectedTextSnapshot: string;
+  rect: {
+    height: number;
+    left: number;
+    top: number;
+    width: number;
+  };
 };
 
 export function readTextSelectionWithin(root: HTMLElement, sourceText: string): TextSelectionRange | null {
@@ -27,8 +33,19 @@ export function readTextSelectionWithin(root: HTMLElement, sourceText: string): 
 
   return {
     endOffset: end,
+    rect: rectFromRange(range),
     selectedTextSnapshot,
     startOffset: start,
+  };
+}
+
+function rectFromRange(range: Range) {
+  const rect = range.getBoundingClientRect();
+  return {
+    height: rect.height,
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
   };
 }
 

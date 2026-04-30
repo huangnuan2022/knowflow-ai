@@ -69,7 +69,12 @@ Started in Phase 3:
 - Context chip for a child branch showing the selected text that created the branch.
 - Visual highlight rendering for persisted branch selections when viewing the source message.
 - Canvas nodes show recent conversation message previews instead of title-only cards.
-- Branch edges anchor to the rendered highlight chip inside the source node.
+- Selected canvas nodes expand into an inline conversation view with ChatGPT-like user bubbles and full-width assistant responses.
+- Users can ask follow-up questions directly inside the expanded canvas node.
+- Assistant-message text can be selected and branched directly inside the expanded canvas node.
+- New selections are highlighted in place and show a compact Branch action beside the selected text.
+- Branch edges anchor to inline highlight spans in expanded source nodes, with stable highlight-chip anchors as the collapsed-node fallback.
+- The right sidebar acts as a secondary read-only inspector instead of the primary ask/branch surface.
 
 Not implemented in Phase 3:
 
@@ -79,7 +84,7 @@ Not implemented in Phase 3:
 - Real-provider model selection UI.
 - Batched highlight loading.
 - Context chip controls for adding or removing graph context.
-- Pixel-perfect inline edge anchors inside rich Markdown text.
+- Pixel-perfect inline edge anchors inside rich Markdown and code-block rendering.
 
 ### Included Features
 
@@ -131,9 +136,9 @@ Not implemented in Phase 3:
 - A user can create a root conversation node.
 - A user can ask AI a question inside the node.
 - The AI response is saved as a message in that node.
-- A user can select text in the AI response and create a child node.
+- A user can select text in the AI response inside the canvas node and create a child node from a compact inline Branch action.
 - The selected text is persisted as a `Highlight` or `TextSelection`.
-- The child node is connected by a branch edge.
+- The child node is connected by a branch edge that visually originates from the persisted highlight when the source node is expanded.
 - The child node shows or receives the selected text as context.
 - AI runs have visible success or failure status.
 - The graph remains usable for at least 30 conversation nodes in a v0 performance fixture.
