@@ -1,17 +1,25 @@
-import { Bot, Loader2, Send, UserRound } from 'lucide-react';
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
-import { createRun, createUserMessage, executeRun, getMessages } from '../lib/api';
-import { DomainNode, Message } from '../lib/domain';
+import { Bot, GitBranch, Loader2, Send, UserRound } from 'lucide-react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { createBranchFromSelection, createRun, createUserMessage, executeRun, getMessages } from '../lib/api';
+import { DomainNode, Message, NodeLayout } from '../lib/domain';
+import { readTextSelectionWithin, TextSelectionRange } from '../lib/textSelection';
 
 type ConversationPanelProps = {
   node?: DomainNode;
+  onBranchCreated?: (childNodeId: string) => Promise<void> | void;
 };
 
-export function ConversationPanel({ node }: ConversationPanelProps) {
+type BranchSelectionDraft = TextSelectionRange & {
+  messageId: string;
+};
+
+export function ConversationPanel({ node, onBranchCreated }: ConversationPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [draft, setDraft] = useState('');
+  const [selectionDraft, setSelectionDraft] = useState<BranchSelectionDraft | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isBranching, setIsBranching] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const sortedMessages = useMemo(
@@ -39,6 +47,15 @@ export function ConversationPanel({ node }: ConversationPanelProps) {
   useEffect(() => {
     void refreshMessages();
   }, [refreshMessages]);
+
+  useEffect(() => {
+    setSelectionDraft(null);
+  }, [node?.id]);
+
+  const onAssistantSelection = useCallback((message: Message, element: HTMLElement) => {
+    const selection = readTextSelectionWithin(element, message.content);
+    setSelectionDraft(selection ? { ...selection, messageId: message.id } : null);
+  }, []);
 
   const onSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
@@ -79,6 +96,39 @@ export function ConversationPanel({ node }: ConversationPanelProps) {
     [draft, isSubmitting, node, refreshMessages],
   );
 
+  const onBranch = useCallback(async () => {
+    if (!node || !selectionDraft || isBranching) {
+      return;
+    }
+
+    setIsBranching(true);
+    setError(null);
+    try {
+      const result = await createBranchFromSelection({
+        childNode: {
+          layout: buildChildLayout(node.layout),
+          summary: `Selected context: ${truncateText(selectionDraft.selectedTextSnapshot, 96)}`,
+          title: `Branch: ${truncateText(selectionDraft.selectedTextSnapshot, 44)}`,
+        },
+        context: {
+          tokenEstimate: estimateTokenCount(selectionDraft.selectedTextSnapshot),
+        },
+        endOffset: selectionDraft.endOffset,
+        messageId: selectionDraft.messageId,
+        selectedTextSnapshot: selectionDraft.selectedTextSnapshot,
+        startOffset: selectionDraft.startOffset,
+      });
+
+      setSelectionDraft(null);
+      window.getSelection()?.removeAllRanges();
+      await onBranchCreated?.(result.childNode.id);
+    } catch (branchError) {
+      setError(branchError instanceof Error ? branchError.message : 'Unable to create branch');
+    } finally {
+      setIsBranching(false);
+    }
+  }, [isBranching, node, onBranchCreated, selectionDraft]);
+
   if (!node) {
     return (
       <aside className="conversation-panel">
@@ -96,13 +146,31 @@ export function ConversationPanel({ node }: ConversationPanelProps) {
 
       {error ? <div className="conversation-panel__error">{error}</div> : null}
 
+      {selectionDraft ? (
+        <div className="branch-selection">
+          <div>
+            <span>Selection</span>
+            <p>{selectionDraft.selectedTextSnapshot}</p>
+          </div>
+          <button className="primary-button" disabled={isBranching} onClick={onBranch} type="button">
+            {isBranching ? <Loader2 className="spin" size={17} /> : <GitBranch size={17} />}
+            Branch
+          </button>
+        </div>
+      ) : null}
+
       <div className="message-list" aria-busy={isLoading || isSubmitting}>
         {isLoading ? <div className="message-list__state">Loading</div> : null}
         {!isLoading && sortedMessages.length === 0 ? (
           <div className="message-list__state">No messages</div>
         ) : null}
         {sortedMessages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
+          <MessageBubble
+            isSelectedForBranch={selectionDraft?.messageId === message.id}
+            key={message.id}
+            message={message}
+            onAssistantSelection={onAssistantSelection}
+          />
         ))}
         {isSubmitting ? (
           <div className="message-bubble message-bubble--assistant">
@@ -136,19 +204,71 @@ export function ConversationPanel({ node }: ConversationPanelProps) {
   );
 }
 
-function MessageBubble({ message }: { message: Message }) {
+function MessageBubble({
+  isSelectedForBranch,
+  message,
+  onAssistantSelection,
+}: {
+  isSelectedForBranch: boolean;
+  message: Message;
+  onAssistantSelection: (message: Message, element: HTMLElement) => void;
+}) {
+  const contentRef = useRef<HTMLDivElement>(null);
   const isAssistant = message.role === 'ASSISTANT';
   const Icon = isAssistant ? Bot : UserRound;
+  const bubbleClassName = [
+    'message-bubble',
+    isAssistant ? 'message-bubble--assistant' : 'message-bubble--user',
+    isSelectedForBranch ? 'message-bubble--branch-source' : '',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const captureSelection = useCallback(() => {
+    if (isAssistant && contentRef.current) {
+      onAssistantSelection(message, contentRef.current);
+    }
+  }, [isAssistant, message, onAssistantSelection]);
 
   return (
-    <article className={`message-bubble ${isAssistant ? 'message-bubble--assistant' : 'message-bubble--user'}`}>
+    <article className={bubbleClassName}>
       <span className="message-bubble__icon" aria-hidden="true">
         <Icon size={16} />
       </span>
       <div>
         <div className="message-bubble__role">{message.role.toLowerCase()}</div>
-        <div className="message-bubble__content">{message.content}</div>
+        <div
+          className={`message-bubble__content ${isAssistant ? 'message-bubble__content--selectable' : ''}`}
+          onKeyUp={captureSelection}
+          onMouseUp={captureSelection}
+          ref={contentRef}
+          tabIndex={isAssistant ? 0 : undefined}
+        >
+          {message.content}
+        </div>
       </div>
     </article>
   );
+}
+
+function buildChildLayout(parentLayout?: NodeLayout | null): NodeLayout {
+  return {
+    height: 180,
+    width: 280,
+    x: numberOrDefault(parentLayout?.x, 100) + 360,
+    y: numberOrDefault(parentLayout?.y, 120) + 80,
+  };
+}
+
+function estimateTokenCount(text: string) {
+  return Math.max(1, Math.ceil(text.length / 4));
+}
+
+function numberOrDefault(value: unknown, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function truncateText(text: string, maxLength: number) {
+  const compact = text.trim().replace(/\s+/g, ' ');
+  return compact.length > maxLength ? `${compact.slice(0, Math.max(0, maxLength - 3))}...` : compact;
 }

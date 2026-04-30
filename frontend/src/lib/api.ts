@@ -1,4 +1,5 @@
 import {
+  BranchFromSelectionResult,
   DomainEdge,
   DomainNode,
   Graph,
@@ -94,6 +95,36 @@ export async function createRun(input: {
 
 export async function executeRun(runId: string) {
   return post<RunExecutionResult>(`/runs/${runId}/execute`, {});
+}
+
+export async function createBranchFromSelection(input: {
+  messageId: string;
+  startOffset: number;
+  endOffset: number;
+  selectedTextSnapshot: string;
+  childNode: {
+    title: string;
+    summary?: string;
+    layout?: NodeLayout;
+  };
+  context?: {
+    promptTemplateVersion?: string;
+    contextPolicyVersion?: string;
+    tokenEstimate?: number;
+  };
+}) {
+  return post<BranchFromSelectionResult>('/branches/from-selection', {
+    childNode: input.childNode,
+    context: {
+      contextPolicyVersion: input.context?.contextPolicyVersion ?? CONTEXT_POLICY_VERSION,
+      promptTemplateVersion: input.context?.promptTemplateVersion ?? PROMPT_TEMPLATE_VERSION,
+      tokenEstimate: input.context?.tokenEstimate,
+    },
+    endOffset: input.endOffset,
+    messageId: input.messageId,
+    selectedTextSnapshot: input.selectedTextSnapshot,
+    startOffset: input.startOffset,
+  });
 }
 
 async function createProject() {

@@ -50,8 +50,10 @@ function KnowFlowCanvas() {
       setBundle(nextBundle);
       setNodes(toReactFlowNodes(nextBundle.nodes));
       setEdges(toReactFlowEdges(nextBundle.edges));
+      return nextBundle;
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Unable to load graph');
+      return null;
     } finally {
       setIsLoading(false);
     }
@@ -132,6 +134,14 @@ function KnowFlowCanvas() {
     }
   }, [bundle, nodes.length, setNodes]);
 
+  const onBranchCreated = useCallback(
+    async (childNodeId: string) => {
+      await refresh();
+      setSelectedNodeId(childNodeId);
+    },
+    [refresh],
+  );
+
   const onConnect = useCallback(
     async (connection: Connection) => {
       if (!bundle || !connection.source || !connection.target) {
@@ -183,7 +193,7 @@ function KnowFlowCanvas() {
         </div>
         <div className="topbar__actions">
           <span className="status-pill">{statusText}</span>
-          <button aria-label="Refresh graph" className="icon-button" onClick={refresh} type="button">
+          <button aria-label="Refresh graph" className="icon-button" onClick={() => void refresh()} type="button">
             <RefreshCw size={18} />
           </button>
           <button className="primary-button" disabled={!bundle || isSaving} onClick={onCreateNode} type="button">
@@ -213,7 +223,7 @@ function KnowFlowCanvas() {
             <Controls />
           </ReactFlow>
         </section>
-        <ConversationPanel node={selectedNode} />
+        <ConversationPanel node={selectedNode} onBranchCreated={onBranchCreated} />
       </div>
     </main>
   );

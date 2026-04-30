@@ -41,6 +41,15 @@ export type DomainEdge = {
   sourceHighlightId?: string | null;
 };
 
+export type Highlight = {
+  id: string;
+  messageId: string;
+  startOffset: number;
+  endOffset: number;
+  selectedTextSnapshot: string;
+  anchorVersion: number;
+};
+
 export type MessageRole = 'USER' | 'ASSISTANT' | 'SYSTEM';
 
 export type Message = {
@@ -76,6 +85,25 @@ export type Run = {
 
 export type RunExecutionResult = {
   message: Message | null;
+  run: Run;
+};
+
+export type ContextSnapshot = {
+  id: string;
+  runId: string;
+  includedMessageIds: string[];
+  includedHighlightIds: string[];
+  selectedTextSnapshot?: string | null;
+  tokenEstimate?: number | null;
+  promptTemplateVersion: string;
+  contextPolicyVersion: string;
+};
+
+export type BranchFromSelectionResult = {
+  childNode: DomainNode;
+  contextSnapshot: ContextSnapshot;
+  edge: DomainEdge;
+  highlight: Highlight;
   run: Run;
 };
 

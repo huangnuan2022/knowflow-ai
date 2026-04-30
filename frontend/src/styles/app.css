@@ -277,6 +277,11 @@ button {
   border-color: #bfdbfe;
 }
 
+.message-bubble--branch-source {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgb(37 99 235 / 0.12);
+}
+
 .message-bubble__icon {
   align-items: center;
   background: #ffffff;
@@ -303,6 +308,43 @@ button {
   line-height: 1.5;
   overflow-wrap: anywhere;
   white-space: pre-wrap;
+}
+
+.message-bubble__content--selectable {
+  cursor: text;
+  user-select: text;
+}
+
+.message-bubble__content--selectable:focus {
+  outline: none;
+}
+
+.branch-selection {
+  align-items: center;
+  background: #f0fdf4;
+  border-bottom: 1px solid #bbf7d0;
+  display: grid;
+  gap: 12px;
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: 12px 16px;
+}
+
+.branch-selection span {
+  color: #047857;
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+
+.branch-selection p {
+  color: #14532d;
+  font-size: 13px;
+  line-height: 1.4;
+  margin: 0;
+  max-height: 56px;
+  overflow: hidden;
 }
 
 .composer {

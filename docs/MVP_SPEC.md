@@ -63,14 +63,18 @@ Started in Phase 3:
 - User message creation from the frontend.
 - Non-streaming Run creation and execution through the existing provider-neutral backend API.
 - Local frontend defaults to `provider = stub` and `model = stub-tutor-v0` so the UI can be exercised without an API key.
+- Assistant-message text selection in the conversation panel.
+- Branch action that calls the transactional `POST /api/branches/from-selection` backend command.
+- Graph refresh and automatic child-node selection after a branch is created.
 
 Not implemented in Phase 3:
 
-- Text selection and branch UI.
 - Markdown rendering beyond plain selectable text display.
 - Run retry, cancellation, or streaming.
 - Node title and summary editing from the frontend.
 - Real-provider model selection UI.
+- Visual highlight rendering after refresh.
+- Context chips for the new child branch.
 
 ### Included Features
 
