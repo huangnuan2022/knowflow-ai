@@ -20,6 +20,9 @@ Implemented in Phase 1:
 - Message, Highlight, and ContextSnapshot create/read/delete boundaries only, preserving the v0 immutability decision.
 - Durable Run records as data records only; no AI provider call is implemented yet.
 - Build, Prisma validation, and module compile smoke test commands.
+- Local Docker Compose PostgreSQL bootstrap for dev and test databases.
+- Prisma migration application verified against local `knowflow` and `knowflow_test` databases.
+- Integration test that creates User, Project, Graph, Node, Message, Highlight, Edge, Run, and ContextSnapshot through HTTP API boundaries.
 
 Not implemented in Phase 1:
 

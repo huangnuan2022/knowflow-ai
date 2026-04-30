@@ -107,6 +107,8 @@ Phase 1 database artifacts:
 - `prisma/schema.prisma` defines the domain schema.
 - `prisma/migrations/20260430000000_init/migration.sql` contains the initial PostgreSQL migration derived from the Prisma schema.
 - `.env.example` documents the expected `DATABASE_URL`.
+- `docker-compose.yml` provides a local PostgreSQL container on host port `15432`.
+- `docker/postgres/init/001-create-test-db.sql` creates the `knowflow_test` database on first container initialization.
 
 ## Domain Model
 
@@ -224,13 +226,22 @@ For KnowFlow MVP this means:
 Current backend verification commands:
 
 ```bash
+npm run db:up
+npm run db:ensure:test
+npm run db:migrate
+npm run db:migrate:test
 npm run prisma:generate
 npm run prisma:validate
 npm run build
 npm test
+npm run test:integration
 ```
 
-`npm run prisma:validate` uses a local fallback `DATABASE_URL` for schema validation if the environment variable is not set. Applying migrations to a real database still requires a reachable PostgreSQL instance and a real `DATABASE_URL`.
+`npm run db:up` starts the local Docker PostgreSQL service. It maps container port `5432` to host port `15432` to avoid colliding with common local PostgreSQL installs.
+
+`npm run db:ensure:test` creates `knowflow_test` if an existing Docker volume was initialized before the test database existed.
+
+`npm run prisma:validate`, `npm run db:migrate`, `npm run db:migrate:test`, and `npm run test:integration` use local fallback database URLs if environment variables are not set. Applying migrations and running integration tests still require a reachable PostgreSQL instance.
 
 ## Open Questions
 
