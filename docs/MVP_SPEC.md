@@ -76,13 +76,13 @@ Started in Phase 3:
 - New selections are highlighted in place and show a compact Branch action beside the selected text.
 - After branching, the source node remains expanded so the persisted highlight and outgoing branch edge stay visually connected.
 - Branch edges anchor to inline highlight spans in expanded source nodes, with stable highlight-chip anchors as the collapsed-node fallback.
-- Collapsed nodes show only the node title, node summary, and branch-points list. Conversation messages, inline highlights, and ask/branch controls belong in the expanded node.
+- Collapsed nodes show only the node title, node summary, and branch-points list. Conversation messages, inline highlights, edit controls, and ask/branch controls belong in the expanded node.
 - Persisted branch highlights and collapsed branch-point chips can be clicked to jump to the connected child node.
 - Dragging a node should move it without expanding it; clicking opens the expanded node.
 - New nodes should be created near the current visible canvas center, not at a fixed global graph coordinate.
 - Selected/expanded nodes can be resized from their borders, and resized dimensions are stored in node layout metadata.
 - Node title and summary editing from the frontend, saved through the backend node update boundary.
-- Manual edges can be created between nodes and labeled as lightweight user-authored relationships. Branch edge labels remain tied to selected source text.
+- Manual edges can be created between collapsed node cards and labeled as lightweight peer relationships. Manual edges are undirected by default. Branch points are reserved for branch navigation, and branch edge labels remain tied to selected source text.
 - The right sidebar acts as a secondary read-only inspector instead of the primary ask/branch surface.
 
 Not implemented in Phase 3:

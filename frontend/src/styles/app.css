@@ -315,6 +315,17 @@ button {
   width: 100%;
 }
 
+.conversation-node__summary-preview {
+  border-top: 1px solid #e2e8f0;
+  color: #475569;
+  font-size: 13px;
+  line-height: 1.45;
+  margin-top: 12px;
+  overflow-wrap: anywhere;
+  padding-top: 12px;
+  white-space: pre-wrap;
+}
+
 .conversation-node__highlights > span {
   color: #64748b;
   display: block;
@@ -562,7 +573,13 @@ button {
   width: 10px;
 }
 
+.node-handle--manual-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .node-handle--highlight {
+  cursor: default;
   right: -22px;
   top: 50%;
   transform: translate(50%, -50%);

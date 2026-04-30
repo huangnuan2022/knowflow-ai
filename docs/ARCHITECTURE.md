@@ -52,18 +52,18 @@ Canvas-first interaction rule:
 
 - The expanded canvas node is the primary place to read, ask, select AI response text, and branch.
 - The right sidebar should not be required for the core branch workflow; it is an alternative reader/inspector.
-- The collapsed canvas node should be a compact navigation object: editable title, editable summary, and branch points only. Message text and inline highlights are reserved for the expanded/focused node.
+- The collapsed canvas node should be a compact navigation object: title, summary, and branch points only. Message text, inline highlights, ask controls, and title/summary editing are reserved for the expanded/focused node so collapsed cards remain easy to drag and scan.
 - Expanded/focused state should be driven by KnowFlow's `selectedNodeId`, not by transient React Flow selection changes. This prevents drag, resize, or internal selection events from accidentally rendering expanded conversation controls inside a collapsed node.
 - User messages should appear as compact right-aligned bubbles, while assistant responses should read as broader prose inside the node.
 - Persisted highlights should render in place when possible, and branch edges should use source handles attached to those highlights. A collapsed node may fall back to stable highlight chips so existing edges still have visible handles.
 - Persisted branch highlights and collapsed branch-point chips should jump to their connected child nodes. This makes the graph navigable from the exact learning fork, not only from the node card.
 - After creating a branch, keep the source node selected and expanded, then fit the source and child node into view. Selecting the child immediately hides the source highlight and makes the branch feel disconnected.
-- Manual edges are allowed for non-branch relationships and may have editable labels. They should remain visually and semantically separate from branch edges. Branch edge labels represent selected source text and should not be freely edited in v0.
+- Manual edges are allowed for non-branch peer relationships between collapsed node cards and may have editable labels. They should remain visually and semantically separate from branch edges, and are undirected by default in v0. Branch points should not be manual connection handles. Branch edge labels represent selected source text and should not be freely edited in v0.
 - Node deletion must be a domain API operation. React Flow delete/remove events should call the backend delete boundary and refresh server state; removing nodes only from local canvas state causes deleted nodes to reappear on the next refresh.
 - Dragging a node should not expand it; expansion is a click/focus action. This keeps basic canvas movement predictable.
 - Resizing is allowed on selected/expanded nodes and persists to node layout metadata through the backend node update boundary.
 - Node creation should use the current viewport center converted to graph coordinates. Fixed default graph coordinates make nodes appear in surprising off-screen or bottom-of-view positions after the user pans or zooms.
-- Branch edges should have a higher z-index than node cards so the line segment from an inline highlight handle is not hidden behind the source node. Use moderate opacity so lines do not overpower text.
+- Node cards should render above graph edges, especially when expanded, so relationship lines do not cut through readable conversation content. Use the persisted highlight and branch-point jump action as the provenance cue rather than drawing branch edges over node text.
 
 ## Rich Text And Selection Direction
 

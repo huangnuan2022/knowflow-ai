@@ -251,25 +251,34 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
         minWidth={isExpanded ? 520 : 300}
         onResizeEnd={onResizeEnd}
       />
-      <Handle className="node-handle" position={Position.Top} type="target" />
+      <Handle
+        className={`node-handle node-handle--manual ${isExpanded ? 'node-handle--manual-hidden' : ''}`}
+        isConnectable={!isExpanded}
+        position={Position.Top}
+        type="target"
+      />
       <div className="conversation-node__header">
         <span className="conversation-node__icon" aria-hidden="true">
           <MessageSquareText size={16} />
         </span>
         <div className="conversation-node__title-stack">
-          <input
-            aria-label="Node title"
-            className="conversation-node__title-input nodrag nopan"
-            disabled={isSavingDetails}
-            onBlur={() => void saveTitle()}
-            onChange={(event) => setTitleDraft(event.target.value)}
-            onClick={(event) => event.stopPropagation()}
-            onKeyDown={onTitleKeyDown}
-            onPointerDown={(event) => event.stopPropagation()}
-            spellCheck={false}
-            title="Node title"
-            value={titleDraft}
-          />
+          {isExpanded ? (
+            <input
+              aria-label="Node title"
+              className="conversation-node__title-input nodrag nopan"
+              disabled={isSavingDetails}
+              onBlur={() => void saveTitle()}
+              onChange={(event) => setTitleDraft(event.target.value)}
+              onClick={(event) => event.stopPropagation()}
+              onKeyDown={onTitleKeyDown}
+              onPointerDown={(event) => event.stopPropagation()}
+              spellCheck={false}
+              title="Node title"
+              value={titleDraft}
+            />
+          ) : (
+            <h2>{nodeData.title}</h2>
+          )}
         </div>
         <button
           aria-label={`Delete ${nodeData.title}`}
@@ -282,22 +291,22 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
           {isDeleting ? <Loader2 className="spin" size={14} /> : <Trash2 size={14} />}
         </button>
       </div>
-      <textarea
-        aria-label="Node summary"
-        className="conversation-node__summary-input nodrag nopan nowheel"
-        disabled={isSavingDetails}
-        onBlur={() => void saveSummary()}
-        onChange={(event) => setSummaryDraft(event.target.value)}
-        onClick={(event) => event.stopPropagation()}
-        onKeyDown={onSummaryKeyDown}
-        onPointerDown={(event) => event.stopPropagation()}
-        placeholder="Add node summary"
-        rows={isExpanded ? 2 : 1}
-        value={summaryDraft}
-      />
 
       {isExpanded ? (
         <>
+          <textarea
+            aria-label="Node summary"
+            className="conversation-node__summary-input nodrag nopan nowheel"
+            disabled={isSavingDetails}
+            onBlur={() => void saveSummary()}
+            onChange={(event) => setSummaryDraft(event.target.value)}
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={onSummaryKeyDown}
+            onPointerDown={(event) => event.stopPropagation()}
+            placeholder="Add node summary"
+            rows={2}
+            value={summaryDraft}
+          />
           {nodeData.branchContext ? (
             <div className="conversation-node__context nodrag nopan nowheel">
               <span>Context</span>
@@ -352,7 +361,12 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
         <CollapsedNodeBody nodeData={nodeData} sourceNodeId={id} />
       )}
 
-      <Handle className="node-handle" position={Position.Bottom} type="source" />
+      <Handle
+        className={`node-handle node-handle--manual ${isExpanded ? 'node-handle--manual-hidden' : ''}`}
+        isConnectable={!isExpanded}
+        position={Position.Bottom}
+        type="source"
+      />
     </article>
   );
 }
@@ -368,13 +382,14 @@ function CollapsedNodeBody({
 
   return (
     <>
+      {nodeData.summary ? <p className="conversation-node__summary-preview">{nodeData.summary}</p> : null}
       {hasBranchHighlights ? (
-        <div className="conversation-node__highlights nodrag">
+        <div className="conversation-node__highlights">
           <span>Branch points</span>
           {nodeData.branchHighlights.map((highlight) => (
             <div className="conversation-node__highlight" key={highlight.id} title={highlight.text}>
               <button
-                className="conversation-node__highlight-button"
+                className="conversation-node__highlight-button nodrag nopan"
                 onClick={(event) => {
                   event.stopPropagation();
                   nodeData.onBranchTargetSelected?.(highlight.targetNodeId, sourceNodeId);
@@ -386,6 +401,7 @@ function CollapsedNodeBody({
               <Handle
                 className="node-handle node-handle--highlight"
                 id={branchHighlightHandleId(highlight.id)}
+                isConnectable={false}
                 position={Position.Right}
                 type="source"
               />
@@ -551,6 +567,7 @@ function HighlightedContent({
           <Handle
             className="node-handle node-handle--inline-highlight"
             id={branchHighlightHandleId(range.id)}
+            isConnectable={false}
             position={Position.Right}
             type="source"
           />

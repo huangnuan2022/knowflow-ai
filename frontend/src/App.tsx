@@ -363,6 +363,14 @@ function KnowFlowCanvas() {
       if (!bundle || !connection.source || !connection.target) {
         return;
       }
+      if (connection.source === selectedNodeId || connection.target === selectedNodeId) {
+        setError('Collapse expanded nodes before creating a manual relationship edge.');
+        return;
+      }
+      if (connection.sourceHandle?.startsWith('branch-highlight-')) {
+        setError('Branch points are reserved for branch navigation, not manual relationship edges.');
+        return;
+      }
 
       setIsSaving(true);
       setError(null);
@@ -386,7 +394,7 @@ function KnowFlowCanvas() {
         setIsSaving(false);
       }
     },
-    [bundle, setEdges],
+    [bundle, selectedNodeId],
   );
 
   const statusText = useMemo(() => {

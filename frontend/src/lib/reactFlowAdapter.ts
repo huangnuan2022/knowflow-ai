@@ -118,6 +118,7 @@ export function toReactFlowNodes(
         width,
       },
       type: 'conversation',
+      zIndex: isSelected ? 1000 : 100,
     };
   });
 }
@@ -138,16 +139,18 @@ export function toReactFlowEdges(
       },
       id: edge.id,
       label: edge.label ?? undefined,
-      markerEnd: {
-        color: isBranchEdge ? '#2563eb' : undefined,
-        type: MarkerType.ArrowClosed,
-      },
+      markerEnd: isBranchEdge
+        ? {
+            color: '#2563eb',
+            type: MarkerType.ArrowClosed,
+          }
+        : undefined,
       source: edge.sourceNodeId,
       sourceHandle: isBranchEdge && edge.sourceHighlightId ? branchHighlightHandleId(edge.sourceHighlightId) : undefined,
       style: isBranchEdge ? { stroke: '#2563eb', strokeOpacity: 0.5, strokeWidth: 1.65 } : undefined,
       target: edge.targetNodeId,
       type: 'editable',
-      zIndex: isBranchEdge ? 2000 : 0,
+      zIndex: isBranchEdge ? 20 : 10,
     };
   });
 }
