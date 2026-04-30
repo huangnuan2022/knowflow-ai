@@ -11,6 +11,8 @@
     "db:migrate": "DATABASE_URL=${DATABASE_URL:-postgresql://knowflow:knowflow@localhost:15432/knowflow?schema=public} prisma migrate deploy",
     "db:migrate:test": "npm run db:ensure:test && DATABASE_URL=${TEST_DATABASE_URL:-postgresql://knowflow:knowflow@localhost:15432/knowflow_test?schema=public} prisma migrate deploy",
     "db:up": "docker compose up -d --wait postgres",
+    "frontend:build": "npm run build --prefix frontend",
+    "frontend:dev": "npm run dev --prefix frontend",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "prisma:generate": "prisma generate",

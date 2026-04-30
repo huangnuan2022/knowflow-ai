@@ -288,6 +288,14 @@ npm test
 npm run test:integration
 ```
 
+Current frontend verification commands:
+
+```bash
+npm install --prefix frontend
+npm run frontend:build
+npm run frontend:dev
+```
+
 OpenAI runtime configuration:
 
 ```bash
@@ -296,6 +304,8 @@ OPENAI_MODEL="gpt-5.4-mini"
 ```
 
 `OPENAI_API_KEY` is required only when executing runs with `provider = openai`. Local tests use the `stub` provider or mocked OpenAI client paths and should not call the real OpenAI API.
+
+Frontend local development uses `http://localhost:5173` by default. The backend allows this origin through `CORS_ORIGIN`; set a comma-separated `CORS_ORIGIN` value when using another Vite port or host.
 
 `npm run db:up` starts the local Docker PostgreSQL service. It maps container port `5432` to host port `15432` to avoid colliding with common local PostgreSQL installs.
 

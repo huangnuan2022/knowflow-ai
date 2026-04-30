@@ -33,7 +33,25 @@ Implemented in Phase 1:
 
 Not implemented in Phase 1:
 
-- Frontend canvas.
+- Export/import.
+
+### Phase 2 Frontend Foundation Status
+
+Started in Phase 2:
+
+- Vite React + TypeScript frontend package.
+- React Flow canvas adapter for rendering domain nodes and edges.
+- Frontend domain API client for projects, graphs, nodes, and edges.
+- Manual node creation.
+- Manual edge creation.
+- Node movement with layout persistence.
+
+Not implemented in Phase 2:
+
+- AI chat UI.
+- Text selection and branch UI.
+- Authentication.
+- Collaboration.
 - Export/import.
 
 ### Included Features
