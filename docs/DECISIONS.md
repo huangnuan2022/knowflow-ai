@@ -175,14 +175,14 @@ This file records major product and architecture decisions. Update it whenever a
 - Future scalable alternative: Add richer relationship types, line styles, and explicit semantic edge categories after the graph model proves useful.
 - Revisit trigger: Users need more explicit relationship modeling, or manual edges create confusion with branch edges during user testing.
 
-### 2026-04-30: Use OpenAI Responses API With GPT-5.4 Mini As The First Real Provider
+### 2026-04-30: Use Backend-Owned OpenAI Responses API Defaults With GPT-5.4 Mini
 
-- Decision: The first real AI adapter should be `provider = openai` using the OpenAI Responses API with default `model = gpt-5.4-mini`. Keep the existing `stub` provider for deterministic local tests.
-- Reason: KnowFlow's v0 needs many short tutor turns, branch follow-ups, and bounded graph context. OpenAI's current model docs recommend smaller GPT-5.4 variants for lower-latency, lower-cost workloads, and `gpt-5.4-mini` supports the Responses API, structured outputs, streaming for later, and a large context window. Source checked 2026-04-30: https://developers.openai.com/api/docs/models and https://developers.openai.com/api/docs/models/gpt-5.4-mini.
-- Tradeoff: `gpt-5.4-mini` is not the highest-quality model; hard CS/system-design explanations may sometimes need a stronger model.
+- Decision: The first real AI adapter should be `provider = openai` using the OpenAI Responses API with default `model = gpt-5.4-mini`. Backend environment variables own provider/model defaults through `AI_PROVIDER` and `AI_MODEL`; the frontend does not decide whether paid provider execution is enabled. Keep the existing `stub` provider with `stub-tutor-v0` for deterministic local tests. Allow `gpt-5.4-nano` only as a manual lower-cost OpenAI setting, not an automatic fallback.
+- Reason: KnowFlow's v0 needs many short tutor turns, branch follow-ups, and bounded graph context. OpenAI's model docs identify `gpt-5.4-mini` as a smaller model suitable for lower-latency, lower-cost workloads, while `gpt-5.4-nano` is better suited to simpler classification, extraction, or routing-style tasks. Source checked 2026-04-30: https://developers.openai.com/api/docs/models/gpt-5.4-mini and https://developers.openai.com/api/docs/models/gpt-5.4-nano/.
+- Tradeoff: Backend-owned defaults are less flexible than a visible model picker, and `gpt-5.4-mini` is not the highest-quality model for every difficult CS/system-design explanation.
 - Simpler MVP alternative: Keep only the local `stub` provider or call one OpenAI model directly from `RunsService`.
-- Future scalable alternative: Per-project or per-run model routing with `gpt-5.4` or `gpt-5.5` for harder explanations, fallback providers, eval-based model selection, and async streaming after the core workflow works.
-- Revisit trigger: User testing shows weak explanations, token costs exceed expectations, OpenAI pricing/availability changes, or provider-neutral adapter behavior becomes too constrained.
+- Future scalable alternative: Per-project or per-run model routing with stronger models for harder explanations, fallback providers, eval-based model selection, and async streaming after the core workflow works.
+- Revisit trigger: User testing shows weak explanations, token costs exceed expectations, OpenAI pricing/availability changes, users need visible model controls, or provider-neutral adapter behavior becomes too constrained.
 
 ### 2026-04-30: Use 30 Nodes As The v0 Graph Performance Check
 

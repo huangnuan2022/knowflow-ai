@@ -2,10 +2,11 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
 import type { EasyInputMessage } from 'openai/resources/responses/responses';
+import { DEFAULT_OPENAI_MODEL } from '../ai.constants';
 import { AiCompletionRequest, AiCompletionResult, AiProvider } from './ai-provider.interface';
 import { OpenAiClientFactory, OpenAiResponsesClient } from './openai-client.factory';
 
-export const DEFAULT_OPENAI_MODEL = 'gpt-5.4-mini';
+export { DEFAULT_OPENAI_MODEL };
 
 @Injectable()
 export class OpenAiProvider implements AiProvider {
@@ -66,7 +67,14 @@ function toSafeOpenAiErrorMessage(error: unknown) {
   }
 
   if (error instanceof Error) {
-    return error.message;
+    if (
+      error.message.includes('OPENAI_API_KEY is required') ||
+      error.message === 'OpenAI response did not include output_text'
+    ) {
+      return error.message;
+    }
+
+    return 'OpenAI request failed before a usable response was returned';
   }
 
   return 'OpenAI request failed';

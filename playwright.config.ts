@@ -27,6 +27,8 @@ export default defineConfig({
     {
       command: 'npm run start',
       env: envWith({
+        AI_MODEL: 'stub-tutor-v0',
+        AI_PROVIDER: 'stub',
         CORS_ORIGIN: frontendUrl,
         DATABASE_URL: testDatabaseUrl,
         OPENAI_API_KEY: '',
@@ -39,8 +41,6 @@ export default defineConfig({
     {
       command: 'npm run dev --prefix frontend -- --host 127.0.0.1 --port 5174',
       env: envWith({
-        VITE_AI_MODEL: 'stub-tutor-v0',
-        VITE_AI_PROVIDER: 'stub',
         VITE_API_BASE_URL: `${backendUrl}/api`,
       }),
       reuseExistingServer: !process.env.CI,

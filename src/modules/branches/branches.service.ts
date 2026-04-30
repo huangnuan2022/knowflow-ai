@@ -1,11 +1,15 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { EdgeType, NodeType, Prisma, RunStatus } from '@prisma/client';
+import { AiRunConfigService } from '../ai/ai-run-config.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateBranchFromSelectionDto } from './dto/create-branch-from-selection.dto';
 
 @Injectable()
 export class BranchesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly aiRunConfig: AiRunConfigService,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async createFromSelection(createBranchDto: CreateBranchFromSelectionDto) {
     if (createBranchDto.endOffset <= createBranchDto.startOffset) {
@@ -25,6 +29,8 @@ export class BranchesService {
     if (selectedText !== createBranchDto.selectedTextSnapshot) {
       throw new BadRequestException('selectedTextSnapshot does not match the source message range');
     }
+
+    const runConfig = this.aiRunConfig.resolveRunConfig();
 
     return this.prisma.$transaction(async (tx) => {
       const highlight = createBranchDto.sourceHighlightId
@@ -76,10 +82,10 @@ export class BranchesService {
       const run = await tx.run.create({
         data: {
           contextPolicyVersion: createBranchDto.context.contextPolicyVersion,
-          model: 'stub-v1',
+          model: runConfig.model,
           nodeId: childNode.id,
           promptTemplateVersion: createBranchDto.context.promptTemplateVersion,
-          provider: 'stub',
+          provider: runConfig.provider,
           status: RunStatus.PENDING,
         },
       });

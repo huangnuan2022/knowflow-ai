@@ -10,6 +10,9 @@ const testDatabaseUrl =
   'postgresql://knowflow:knowflow@localhost:15432/knowflow_test?schema=public';
 
 process.env.DATABASE_URL = process.env.DATABASE_URL ?? testDatabaseUrl;
+process.env.AI_MODEL = 'stub-tutor-v0';
+process.env.AI_PROVIDER = 'stub';
+process.env.AI_RUN_RATE_LIMIT_MAX = '100';
 process.env.OPENAI_API_KEY = '';
 
 type RecordWithId = {
@@ -91,7 +94,6 @@ describe('Run execution through provider-neutral adapter', () => {
     const run = await createRunWithContext(baseUrl, {
       messageId: message.id,
       nodeId: node.id,
-      provider: 'stub',
       selectedTextSnapshot,
     });
 
@@ -145,6 +147,11 @@ describe('Run execution through provider-neutral adapter', () => {
       method: 'POST',
     });
 
+    expect(branch.run).toMatchObject({
+      model: 'stub-tutor-v0',
+      provider: 'stub',
+    });
+
     const childMessage = await requestJson<RecordWithId>(baseUrl, '/messages', {
       body: JSON.stringify({
         content: 'Why does this make future find operations faster?',
@@ -179,13 +186,58 @@ describe('Run execution through provider-neutral adapter', () => {
     expect(result.run.contextSnapshot.tokenEstimate).toBeGreaterThan(1);
   });
 
-  it('marks a run failed when the provider is not registered', async () => {
+  it('rejects non-allowlisted provider and model requests', async () => {
+    const { node } = await createNodeWithMessage(baseUrl);
+
+    await expect(
+      requestError(baseUrl, '/runs', {
+        body: JSON.stringify({
+          contextPolicyVersion: 'run-execution-context-v1',
+          model: 'stub-tutor-v0',
+          nodeId: node.id,
+          promptTemplateVersion: 'run-execution-prompt-v1',
+          provider: 'missing-provider',
+        }),
+        method: 'POST',
+      }),
+    ).resolves.toMatchObject({ status: 400 });
+
+    await expect(
+      requestError(baseUrl, '/runs', {
+        body: JSON.stringify({
+          contextPolicyVersion: 'run-execution-context-v1',
+          model: 'gpt-5.4-mini',
+          nodeId: node.id,
+          promptTemplateVersion: 'run-execution-prompt-v1',
+          provider: 'stub',
+        }),
+        method: 'POST',
+      }),
+    ).resolves.toMatchObject({ status: 400 });
+  });
+
+  it('marks a corrupted run failed when the persisted provider is not registered', async () => {
     const { message, node } = await createNodeWithMessage(baseUrl);
-    const run = await createRunWithContext(baseUrl, {
-      messageId: message.id,
-      nodeId: node.id,
-      provider: 'missing-provider',
-      selectedTextSnapshot: 'path compression',
+    const run = await prisma.run.create({
+      data: {
+        contextPolicyVersion: 'run-execution-context-v1',
+        model: 'stub-tutor-v0',
+        nodeId: node.id,
+        promptTemplateVersion: 'run-execution-prompt-v1',
+        provider: 'missing-provider',
+        status: RunStatus.PENDING,
+      },
+    });
+    await prisma.contextSnapshot.create({
+      data: {
+        contextPolicyVersion: 'run-execution-context-v1',
+        includedHighlightIds: [],
+        includedMessageIds: [message.id],
+        promptTemplateVersion: 'run-execution-prompt-v1',
+        runId: run.id,
+        selectedTextSnapshot: 'path compression',
+        tokenEstimate: 24,
+      },
     });
 
     const response = await requestError(baseUrl, `/runs/${run.id}/execute`, { method: 'POST' });
@@ -198,7 +250,7 @@ describe('Run execution through provider-neutral adapter', () => {
     await expect(prisma.message.count({ where: { runId: run.id } })).resolves.toBe(0);
   });
 
-  it('marks an OpenAI run failed clearly when OPENAI_API_KEY is not configured', async () => {
+  it('lets explicit OpenAI runs fail safely when OPENAI_API_KEY is not configured', async () => {
     const { message, node } = await createNodeWithMessage(baseUrl);
     const run = await createRunWithContext(baseUrl, {
       messageId: message.id,
@@ -304,14 +356,14 @@ async function createRunWithContext(
     messageId: string;
     model?: string;
     nodeId: string;
-    provider: string;
+    provider?: string;
     selectedTextSnapshot: string;
   },
 ) {
   const run = await requestJson<RecordWithId>(baseUrl, '/runs', {
     body: JSON.stringify({
       contextPolicyVersion: 'run-execution-context-v1',
-      model: input.model ?? 'stub-v1',
+      model: input.model,
       nodeId: input.nodeId,
       promptTemplateVersion: 'run-execution-prompt-v1',
       provider: input.provider,

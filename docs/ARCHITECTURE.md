@@ -228,7 +228,17 @@ Use a provider-neutral AI adapter from day one. Domain run logic should depend o
 
 Phase 1 includes a deterministic local `stub` provider so run lifecycle behavior can be tested without connecting to a real model. The stub provider is not a product AI integration and should be replaced by a real adapter after the context builder and provider choice are confirmed.
 
-The first real provider is an OpenAI adapter using the Responses API with default model `gpt-5.4-mini`. Runs should store `provider = openai` and the exact model id used. The adapter reads `OPENAI_API_KEY` from environment configuration, supports optional `OPENAI_MODEL` fallback when a run model is blank, and should not leak API keys, rendered prompts, or raw provider responses into logs.
+The first real provider is an OpenAI adapter using the Responses API with default model `gpt-5.4-mini`. The backend owns provider/model defaults through `AI_PROVIDER` and `AI_MODEL`; the frontend must not decide whether a run uses a real provider. Runs should store the exact `provider` and `model` used. The adapter reads `OPENAI_API_KEY` from environment configuration and should not leak API keys, rendered prompts, or raw provider responses into logs or API errors.
+
+Allowed v0 provider/model pairs:
+
+- `stub` with `stub-tutor-v0` for deterministic local development and tests.
+- `openai` with `gpt-5.4-mini` for the first real tutor model.
+- `openai` with `gpt-5.4-nano` only as a manual lower-cost test option, not an automatic fallback.
+
+`POST /api/runs` may omit provider and model. The backend resolves defaults, validates provider/model allowlists, and persists the chosen pair on the Run. Explicit client-provided provider/model values are accepted only if they match the backend allowlist. This keeps the API flexible for tests and future admin tooling without letting the browser become the trust boundary.
+
+`POST /api/runs/:id/execute` has a simple v0 in-memory rate limit controlled by `AI_RUN_RATE_LIMIT_MAX` and `AI_RUN_RATE_LIMIT_WINDOW_MS`. It is intended to prevent accidental local cost spikes, not to replace production auth, quotas, or gateway controls.
 
 Phase 1 run execution is synchronous and non-streaming, but it still follows the durable lifecycle: validate pending run, build context, mark running, call provider adapter, persist exactly one assistant message on success, then mark succeeded or failed.
 
@@ -345,11 +355,24 @@ npm run frontend:dev
 OpenAI runtime configuration:
 
 ```bash
+AI_PROVIDER="stub"
+AI_MODEL="stub-tutor-v0"
+AI_RUN_RATE_LIMIT_MAX="10"
+AI_RUN_RATE_LIMIT_WINDOW_MS="60000"
 OPENAI_API_KEY="..."
 OPENAI_MODEL="gpt-5.4-mini"
 ```
 
-`OPENAI_API_KEY` is required only when executing runs with `provider = openai`. Local tests use the `stub` provider or mocked OpenAI client paths and should not call the real OpenAI API.
+Use `AI_PROVIDER="openai"` and `AI_MODEL="gpt-5.4-mini"` to enable the real provider locally. `OPENAI_API_KEY` is required only when executing runs with `provider = openai`. `OPENAI_MODEL` is a compatibility fallback for OpenAI runs, but `AI_MODEL` is the primary backend-owned switch. Local tests use the `stub` provider or mocked OpenAI client paths and should not call the real OpenAI API.
+
+OpenAI setup for local development:
+
+1. Open `https://platform.openai.com/` and sign in.
+2. Create or select a Project in the API dashboard.
+3. Set a project budget or usage limit before testing real runs.
+4. Create a new project API key.
+5. Store the key only in local `.env` as `OPENAI_API_KEY`; do not paste it into frontend code, screenshots, commits, docs, or chat.
+6. Start the backend with `AI_PROVIDER="openai"` and `AI_MODEL="gpt-5.4-mini"`, then ask inside a node and inspect the Run record if needed.
 
 Frontend local development may use `http://localhost:5173` or `http://127.0.0.1:5173`. The backend allows both origins by default; set a comma-separated `CORS_ORIGIN` value when using another Vite port or host.
 
@@ -357,11 +380,9 @@ Frontend runtime configuration:
 
 ```bash
 VITE_API_BASE_URL="http://localhost:3000/api"
-VITE_AI_PROVIDER="stub"
-VITE_AI_MODEL="stub-tutor-v0"
 ```
 
-The frontend defaults to the deterministic `stub` provider for local demos. Real provider secrets stay on the backend; the frontend must not receive or store `OPENAI_API_KEY`.
+Frontend runtime config only points the browser at the backend API. Real provider secrets and real provider/model selection stay on the backend; the frontend must not receive or store `OPENAI_API_KEY`, and `VITE_*` values must not be used as a trust boundary for paid model execution.
 
 `npm run db:up` starts the local Docker PostgreSQL service. It maps container port `5432` to host port `15432` to avoid colliding with common local PostgreSQL installs.
 

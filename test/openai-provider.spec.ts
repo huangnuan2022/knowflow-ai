@@ -75,6 +75,30 @@ describe('OpenAiProvider', () => {
       }),
     ).rejects.toThrow('OpenAI response did not include output_text');
   });
+
+  it('does not leak generic provider error details', async () => {
+    const create = jest.fn().mockRejectedValue(new Error('raw provider body with sk-test-secret and prompt text'));
+    const provider = createProvider({
+      client: { responses: { create } },
+      config: {},
+    });
+
+    await expect(
+      provider.complete({
+        messages: [{ content: 'Explain a private topic.', role: 'user' }],
+        model: DEFAULT_OPENAI_MODEL,
+        runId: 'run_provider_error',
+      }),
+    ).rejects.toThrow('OpenAI request failed before a usable response was returned');
+
+    await expect(
+      provider.complete({
+        messages: [{ content: 'Explain a private topic.', role: 'user' }],
+        model: DEFAULT_OPENAI_MODEL,
+        runId: 'run_provider_error_again',
+      }),
+    ).rejects.not.toThrow('sk-test-secret');
+  });
 });
 
 describe('OpenAiClientFactory', () => {

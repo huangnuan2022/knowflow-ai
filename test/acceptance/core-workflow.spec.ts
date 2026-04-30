@@ -40,10 +40,11 @@ test('protects the canvas ask, branch, and refresh workflow', async ({ page }) =
 
     const sourceNode = page.getByTestId('conversation-node').first();
     await expect(sourceNode).toBeVisible();
-    await expect(sourceNode).toContainText('Conversation 1');
+    await expect(sourceNode.getByLabel('Node title')).toHaveValue('Conversation 1');
     await sourceNode.click();
-    await expect(sourceNode.getByLabel('Ask about this node')).toBeVisible();
-    await sourceNode.getByLabel('Ask about this node').fill(prompt);
+    const askInput = page.getByLabel('Ask about this node');
+    await expect(askInput).toBeVisible();
+    await askInput.fill(prompt);
     await sourceNode.getByRole('button', { name: /^Ask$/ }).click();
 
     const assistantMessage = sourceNode.getByTestId('canvas-message-content').filter({ hasText: 'Stub response' }).first();

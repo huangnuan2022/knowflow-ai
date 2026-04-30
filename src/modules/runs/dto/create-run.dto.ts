@@ -9,11 +9,13 @@ export class CreateRunDto {
   @IsEnum(RunStatus)
   status?: RunStatus;
 
+  @IsOptional()
   @IsString()
-  provider: string;
+  provider?: string;
 
+  @IsOptional()
   @IsString()
-  model: string;
+  model?: string;
 
   @IsString()
   promptTemplateVersion: string;

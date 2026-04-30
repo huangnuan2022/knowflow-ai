@@ -159,16 +159,20 @@ describe('Phase 1 backend persistence boundaries', () => {
       method: 'POST',
     });
 
-    const run = await requestJson<RecordWithId & { status: RunStatus }>(baseUrl, '/runs', {
+    const run = await requestJson<RecordWithId & { model: string; provider: string; status: RunStatus }>(baseUrl, '/runs', {
       body: JSON.stringify({
         contextPolicyVersion: 'phase1-test-context-v1',
-        model: 'test-model',
+        model: 'stub-tutor-v0',
         nodeId: childNode.id,
         promptTemplateVersion: 'phase1-test-prompt-v1',
-        provider: 'test-provider',
+        provider: 'stub',
         status: RunStatus.PENDING,
       }),
       method: 'POST',
+    });
+    expect(run).toMatchObject({
+      model: 'stub-tutor-v0',
+      provider: 'stub',
     });
 
     const contextSnapshot = await requestJson<RecordWithId & { selectedTextSnapshot: string }>(

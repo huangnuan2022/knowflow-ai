@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { MessageRole, RunStatus } from '@prisma/client';
 import { requireRecord } from '../../common/prisma-errors';
+import { AiRunConfigService } from '../ai/ai-run-config.service';
 import { AiProviderRegistry } from '../ai/providers/ai-provider.registry';
 import { ContextBuilderService } from '../context-builder/context-builder.service';
 import { PrismaService } from '../../prisma/prisma.service';
@@ -11,12 +12,21 @@ import { UpdateRunDto } from './dto/update-run.dto';
 export class RunsService {
   constructor(
     private readonly aiProviderRegistry: AiProviderRegistry,
+    private readonly aiRunConfig: AiRunConfigService,
     private readonly contextBuilder: ContextBuilderService,
     private readonly prisma: PrismaService,
   ) {}
 
   create(createRunDto: CreateRunDto) {
-    return this.prisma.run.create({ data: createRunDto });
+    const runConfig = this.aiRunConfig.resolveRunConfig(createRunDto);
+
+    return this.prisma.run.create({
+      data: {
+        ...createRunDto,
+        model: runConfig.model,
+        provider: runConfig.provider,
+      },
+    });
   }
 
   findAll(nodeId?: string, status?: RunStatus) {

@@ -1,9 +1,10 @@
 import { Injectable } from '@nestjs/common';
+import { AI_PROVIDER_STUB } from '../ai.constants';
 import { AiCompletionRequest, AiCompletionResult, AiProvider } from './ai-provider.interface';
 
 @Injectable()
 export class StubAiProvider implements AiProvider {
-  readonly id = 'stub';
+  readonly id = AI_PROVIDER_STUB;
 
   async complete(request: AiCompletionRequest): Promise<AiCompletionResult> {
     const focus = request.selectedTextSnapshot?.trim() || lastUserMessage(request) || 'the selected concept';

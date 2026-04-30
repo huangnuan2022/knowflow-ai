@@ -1,12 +1,23 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Req } from '@nestjs/common';
 import { RunStatus } from '@prisma/client';
+import { AiRunRateLimiter } from '../ai/ai-run-rate-limiter.service';
 import { CreateRunDto } from './dto/create-run.dto';
 import { UpdateRunDto } from './dto/update-run.dto';
 import { RunsService } from './runs.service';
 
+type RequestLike = {
+  ip?: string;
+  socket?: {
+    remoteAddress?: string;
+  };
+};
+
 @Controller('runs')
 export class RunsController {
-  constructor(private readonly runsService: RunsService) {}
+  constructor(
+    private readonly aiRunRateLimiter: AiRunRateLimiter,
+    private readonly runsService: RunsService,
+  ) {}
 
   @Post()
   create(@Body() createRunDto: CreateRunDto) {
@@ -24,7 +35,8 @@ export class RunsController {
   }
 
   @Post(':id/execute')
-  execute(@Param('id') id: string) {
+  execute(@Param('id') id: string, @Req() request: RequestLike) {
+    this.aiRunRateLimiter.assertCanExecute(clientKeyFromRequest(request));
     return this.runsService.execute(id);
   }
 
@@ -37,4 +49,8 @@ export class RunsController {
   remove(@Param('id') id: string) {
     return this.runsService.remove(id);
   }
+}
+
+function clientKeyFromRequest(request: RequestLike) {
+  return request.ip || request.socket?.remoteAddress || 'unknown-client';
 }

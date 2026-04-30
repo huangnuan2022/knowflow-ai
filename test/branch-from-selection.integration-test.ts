@@ -125,7 +125,7 @@ describe('Branch from selection command', () => {
       type: EdgeType.BRANCH,
     });
     expect(branch.run).toMatchObject({
-      model: 'stub-v1',
+      model: 'stub-tutor-v0',
       nodeId: branch.childNode.id,
       provider: 'stub',
       status: RunStatus.PENDING,

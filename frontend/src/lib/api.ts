@@ -13,8 +13,6 @@ import {
 } from './domain';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api';
-const DEFAULT_AI_PROVIDER = import.meta.env.VITE_AI_PROVIDER ?? 'stub';
-const DEFAULT_AI_MODEL = import.meta.env.VITE_AI_MODEL ?? 'stub-tutor-v0';
 const PROMPT_TEMPLATE_VERSION = 'knowflow-tutor-v0';
 const CONTEXT_POLICY_VERSION = 'current-node-selected-ancestor-v0';
 
@@ -157,10 +155,10 @@ export async function createRun(input: {
 }) {
   return post<Run>('/runs', {
     contextPolicyVersion: input.contextPolicyVersion ?? CONTEXT_POLICY_VERSION,
-    model: input.model ?? DEFAULT_AI_MODEL,
+    model: input.model,
     nodeId: input.nodeId,
     promptTemplateVersion: input.promptTemplateVersion ?? PROMPT_TEMPLATE_VERSION,
-    provider: input.provider ?? DEFAULT_AI_PROVIDER,
+    provider: input.provider,
   });
 }
 
