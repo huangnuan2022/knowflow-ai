@@ -6,11 +6,17 @@
   "license": "UNLICENSED",
   "scripts": {
     "build": "nest build",
+    "db:down": "docker compose down",
+    "db:ensure:test": "docker compose exec -T postgres sh -c \"psql -U knowflow -d postgres -tc \\\"SELECT 1 FROM pg_database WHERE datname = 'knowflow_test'\\\" | grep -q 1 || createdb -U knowflow knowflow_test\"",
+    "db:migrate": "DATABASE_URL=${DATABASE_URL:-postgresql://knowflow:knowflow@localhost:15432/knowflow?schema=public} prisma migrate deploy",
+    "db:migrate:test": "npm run db:ensure:test && DATABASE_URL=${TEST_DATABASE_URL:-postgresql://knowflow:knowflow@localhost:15432/knowflow_test?schema=public} prisma migrate deploy",
+    "db:up": "docker compose up -d --wait postgres",
     "start": "nest start",
     "start:dev": "nest start --watch",
     "prisma:generate": "prisma generate",
-    "prisma:validate": "DATABASE_URL=${DATABASE_URL:-postgresql://knowflow:knowflow@localhost:5432/knowflow?schema=public} prisma validate",
-    "test": "jest --runInBand"
+    "prisma:validate": "DATABASE_URL=${DATABASE_URL:-postgresql://knowflow:knowflow@localhost:15432/knowflow?schema=public} prisma validate",
+    "test": "jest --runInBand",
+    "test:integration": "DATABASE_URL=${TEST_DATABASE_URL:-postgresql://knowflow:knowflow@localhost:15432/knowflow_test?schema=public} jest --runInBand --testRegex '.*\\.integration-test\\.ts$'"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
