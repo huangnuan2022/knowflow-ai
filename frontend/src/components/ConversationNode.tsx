@@ -1,6 +1,6 @@
-import { Handle, NodeProps, Position } from '@xyflow/react';
-import { Bot, GitBranch, Loader2, MessageSquareText, Send, UserRound } from 'lucide-react';
-import { FormEvent, useCallback, useMemo, useRef, useState } from 'react';
+import { Handle, NodeProps, NodeResizer, Position, ResizeParams, useUpdateNodeInternals } from '@xyflow/react';
+import { Bot, GitBranch, Loader2, MessageSquareText, Send, Trash2, UserRound } from 'lucide-react';
+import { FormEvent, KeyboardEvent, MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createBranchFromSelection, createRun, createUserMessage, executeRun } from '../lib/api';
 import { Highlight, Message, NodeLayout } from '../lib/domain';
 import { branchHighlightHandleId, ConversationNodeData } from '../lib/reactFlowAdapter';
@@ -16,14 +16,106 @@ type InlineSelectionDraft = TextSelectionRange & {
 
 export function ConversationNode({ data, id, selected }: NodeProps) {
   const nodeData = data as ConversationNodeData;
+  const isExpanded = nodeData.isExpanded;
   const [draft, setDraft] = useState('');
+  const [titleDraft, setTitleDraft] = useState(nodeData.title);
+  const [summaryDraft, setSummaryDraft] = useState(nodeData.summary ?? '');
   const [selectionDraft, setSelectionDraft] = useState<InlineSelectionDraft | null>(null);
   const [isAsking, setIsAsking] = useState(false);
   const [isBranching, setIsBranching] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSavingDetails, setIsSavingDetails] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const updateNodeInternals = useUpdateNodeInternals();
   const sortedMessages = useMemo(
     () => [...nodeData.messages].sort((left, right) => left.sequence - right.sequence),
     [nodeData.messages],
+  );
+  const highlightHandleKey = useMemo(() => {
+    const expandedHighlightIds = sortedMessages.flatMap((message) =>
+      (nodeData.highlightsByMessageId[message.id] ?? []).map((highlight) => highlight.id),
+    );
+    const collapsedHighlightIds = nodeData.branchHighlights.map((highlight) => highlight.id);
+    return [...expandedHighlightIds, ...collapsedHighlightIds].sort().join('|');
+  }, [nodeData.branchHighlights, nodeData.highlightsByMessageId, sortedMessages]);
+
+  useEffect(() => {
+    updateNodeInternals(id);
+  }, [highlightHandleKey, id, isExpanded, updateNodeInternals]);
+
+  useEffect(() => {
+    setTitleDraft(nodeData.title);
+  }, [nodeData.title]);
+
+  useEffect(() => {
+    setSummaryDraft(nodeData.summary ?? '');
+  }, [nodeData.summary]);
+
+  const saveTitle = useCallback(async () => {
+    const nextTitle = titleDraft.trim();
+    if (!nextTitle) {
+      setTitleDraft(nodeData.title);
+      return;
+    }
+    if (nextTitle === nodeData.title) {
+      return;
+    }
+
+    setIsSavingDetails(true);
+    setError(null);
+    try {
+      await nodeData.onNodeDetailsChanged?.(id, { title: nextTitle });
+    } catch (detailsError) {
+      setError(detailsError instanceof Error ? detailsError.message : 'Unable to save node title');
+      setTitleDraft(nodeData.title);
+    } finally {
+      setIsSavingDetails(false);
+    }
+  }, [id, nodeData, titleDraft]);
+
+  const saveSummary = useCallback(async () => {
+    const nextSummary = summaryDraft.trim();
+    const currentSummary = (nodeData.summary ?? '').trim();
+    if (nextSummary === currentSummary) {
+      return;
+    }
+
+    setIsSavingDetails(true);
+    setError(null);
+    try {
+      await nodeData.onNodeDetailsChanged?.(id, { summary: nextSummary.length > 0 ? nextSummary : null });
+    } catch (detailsError) {
+      setError(detailsError instanceof Error ? detailsError.message : 'Unable to save node summary');
+      setSummaryDraft(nodeData.summary ?? '');
+    } finally {
+      setIsSavingDetails(false);
+    }
+  }, [id, nodeData, summaryDraft]);
+
+  const onTitleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      event.stopPropagation();
+      if (event.key === 'Enter') {
+        event.preventDefault();
+        event.currentTarget.blur();
+      }
+      if (event.key === 'Escape') {
+        setTitleDraft(nodeData.title);
+        event.currentTarget.blur();
+      }
+    },
+    [nodeData.title],
+  );
+
+  const onSummaryKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLTextAreaElement>) => {
+      event.stopPropagation();
+      if (event.key === 'Escape') {
+        setSummaryDraft(nodeData.summary ?? '');
+        event.currentTarget.blur();
+      }
+    },
+    [nodeData.summary],
   );
 
   const onAssistantSelection = useCallback((message: Message, element: HTMLElement) => {
@@ -102,28 +194,110 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
 
       setSelectionDraft(null);
       window.getSelection()?.removeAllRanges();
-      await nodeData.onBranchCreated?.(result.childNode.id);
+      await nodeData.onBranchCreated?.(result.childNode.id, id);
     } catch (branchError) {
       setError(branchError instanceof Error ? branchError.message : 'Unable to create branch');
     } finally {
       setIsBranching(false);
     }
-  }, [isBranching, nodeData, selectionDraft]);
+  }, [id, isBranching, nodeData, selectionDraft]);
+
+  const onDelete = useCallback(
+    async (event: MouseEvent<HTMLButtonElement>) => {
+      event.stopPropagation();
+      if (isDeleting) {
+        return;
+      }
+
+      const shouldDelete = window.confirm('Delete this node and its connected edges?');
+      if (!shouldDelete) {
+        return;
+      }
+
+      setIsDeleting(true);
+      setError(null);
+      try {
+        await nodeData.onNodeDeleteRequested?.(id);
+      } catch (deleteError) {
+        setError(deleteError instanceof Error ? deleteError.message : 'Unable to delete node');
+      } finally {
+        setIsDeleting(false);
+      }
+    },
+    [id, isDeleting, nodeData],
+  );
+
+  const onResizeEnd = useCallback(
+    (_: unknown, params: ResizeParams) => {
+      void nodeData.onNodeResizeEnded?.(id, {
+        height: params.height,
+        width: params.width,
+        x: params.x,
+        y: params.y,
+      });
+    },
+    [id, nodeData],
+  );
 
   return (
-    <article className={`conversation-node ${selected ? 'is-selected is-expanded' : ''}`}>
+    <article className={`conversation-node ${isExpanded ? 'is-selected is-expanded' : ''}`}>
+      <NodeResizer
+        autoScale={false}
+        color="#2563eb"
+        handleClassName="node-resizer-handle nodrag nopan"
+        isVisible={isExpanded}
+        lineClassName="node-resizer-line nodrag nopan"
+        minHeight={isExpanded ? 420 : 180}
+        minWidth={isExpanded ? 520 : 300}
+        onResizeEnd={onResizeEnd}
+      />
       <Handle className="node-handle" position={Position.Top} type="target" />
       <div className="conversation-node__header">
         <span className="conversation-node__icon" aria-hidden="true">
           <MessageSquareText size={16} />
         </span>
-        <div>
-          <h2>{nodeData.title}</h2>
+        <div className="conversation-node__title-stack">
+          <input
+            aria-label="Node title"
+            className="conversation-node__title-input nodrag nopan"
+            disabled={isSavingDetails}
+            onBlur={() => void saveTitle()}
+            onChange={(event) => setTitleDraft(event.target.value)}
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={onTitleKeyDown}
+            onPointerDown={(event) => event.stopPropagation()}
+            spellCheck={false}
+            title="Node title"
+            value={titleDraft}
+          />
           <p>{nodeData.type.replace('_', ' ').toLowerCase()}</p>
         </div>
+        <button
+          aria-label={`Delete ${nodeData.title}`}
+          className="node-action-button nodrag nopan"
+          disabled={isDeleting}
+          onClick={onDelete}
+          title="Delete node"
+          type="button"
+        >
+          {isDeleting ? <Loader2 className="spin" size={14} /> : <Trash2 size={14} />}
+        </button>
       </div>
+      <textarea
+        aria-label="Node summary"
+        className="conversation-node__summary-input nodrag nopan nowheel"
+        disabled={isSavingDetails}
+        onBlur={() => void saveSummary()}
+        onChange={(event) => setSummaryDraft(event.target.value)}
+        onClick={(event) => event.stopPropagation()}
+        onKeyDown={onSummaryKeyDown}
+        onPointerDown={(event) => event.stopPropagation()}
+        placeholder="Add node summary"
+        rows={isExpanded ? 2 : 1}
+        value={summaryDraft}
+      />
 
-      {selected ? (
+      {isExpanded ? (
         <>
           {nodeData.branchContext ? (
             <div className="conversation-node__context nodrag nopan nowheel">
@@ -182,24 +356,10 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
 }
 
 function CollapsedNodeBody({ nodeData }: { nodeData: ConversationNodeData }) {
-  const hasMessages = nodeData.messagePreviews.length > 0;
   const hasBranchHighlights = nodeData.branchHighlights.length > 0;
 
   return (
     <>
-      {nodeData.summary ? <p className="conversation-node__summary">{nodeData.summary}</p> : null}
-      <div className="conversation-node__messages nodrag">
-        {hasMessages ? (
-          nodeData.messagePreviews.map((message) => (
-            <div className="conversation-node__message" key={message.id}>
-              <span>{message.role.toLowerCase()}</span>
-              <p>{truncateText(message.content, 110)}</p>
-            </div>
-          ))
-        ) : (
-          <p className="conversation-node__empty">No messages yet</p>
-        )}
-      </div>
       {hasBranchHighlights ? (
         <div className="conversation-node__highlights nodrag">
           <span>Branch points</span>
@@ -215,7 +375,9 @@ function CollapsedNodeBody({ nodeData }: { nodeData: ConversationNodeData }) {
             </div>
           ))}
         </div>
-      ) : null}
+      ) : (
+        <p className="conversation-node__empty">No branch points yet</p>
+      )}
     </>
   );
 }
@@ -270,7 +432,15 @@ function CanvasMessage({
             <button
               className="inline-branch-button"
               disabled={isBranching}
-              onClick={onBranch}
+              onClick={(event) => {
+                event.stopPropagation();
+                void onBranch();
+              }}
+              onMouseDown={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+              }}
+              onMouseUp={(event) => event.stopPropagation()}
               style={{ left: selectionDraft.toolbarPosition.left, top: selectionDraft.toolbarPosition.top }}
               type="button"
             >
@@ -381,8 +551,8 @@ function buildChildLayout(parentLayout?: NodeLayout | null): NodeLayout {
   return {
     height: 220,
     width: 520,
-    x: numberOrDefault(parentLayout?.x, 100) + 440,
-    y: numberOrDefault(parentLayout?.y, 120) + 80,
+    x: numberOrDefault(parentLayout?.x, 100) + 680,
+    y: numberOrDefault(parentLayout?.y, 120) + 72,
   };
 }
 

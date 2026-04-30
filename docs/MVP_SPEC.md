@@ -71,16 +71,22 @@ Started in Phase 3:
 - Canvas nodes show recent conversation message previews instead of title-only cards.
 - Selected canvas nodes expand into an inline conversation view with ChatGPT-like user bubbles and full-width assistant responses.
 - Users can ask follow-up questions directly inside the expanded canvas node.
+- Users can delete nodes from the canvas through a visible node action, and keyboard deletion must call the backend delete boundary rather than only removing local React Flow state.
 - Assistant-message text can be selected and branched directly inside the expanded canvas node.
 - New selections are highlighted in place and show a compact Branch action beside the selected text.
+- After branching, the source node remains expanded so the persisted highlight and outgoing branch edge stay visually connected.
 - Branch edges anchor to inline highlight spans in expanded source nodes, with stable highlight-chip anchors as the collapsed-node fallback.
+- Collapsed nodes show only the node title, node summary, and branch-points list. Conversation messages, inline highlights, and ask/branch controls belong in the expanded node.
+- Dragging a node should move it without expanding it; clicking opens the expanded node.
+- New nodes should be created near the current visible canvas center, not at a fixed global graph coordinate.
+- Selected/expanded nodes can be resized from their borders, and resized dimensions are stored in node layout metadata.
+- Node title and summary editing from the frontend, saved through the backend node update boundary.
 - The right sidebar acts as a secondary read-only inspector instead of the primary ask/branch surface.
 
 Not implemented in Phase 3:
 
 - Markdown rendering beyond plain selectable text display.
 - Run retry, cancellation, or streaming.
-- Node title and summary editing from the frontend.
 - Real-provider model selection UI.
 - Batched highlight loading.
 - Context chip controls for adding or removing graph context.

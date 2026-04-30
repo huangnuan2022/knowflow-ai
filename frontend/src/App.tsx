@@ -12,13 +12,21 @@ import {
   applyNodeChanges,
   useEdgesState,
   useNodesState,
+  useReactFlow,
 } from '@xyflow/react';
 import { Plus, RefreshCw } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ConversationNode } from './components/ConversationNode';
 import { ConversationPanel } from './components/ConversationPanel';
-import { createManualEdge, createNode, loadGraphBundle, updateNodeLayout } from './lib/api';
-import { DomainEdge, GraphBundle } from './lib/domain';
+import {
+  createManualEdge,
+  createNode,
+  deleteNode,
+  loadGraphBundle,
+  updateNodeDetails,
+  updateNodeLayout,
+} from './lib/api';
+import { DomainEdge, GraphBundle, NodeLayout } from './lib/domain';
 import { ConversationFlowNode, toReactFlowEdges, toReactFlowNodes } from './lib/reactFlowAdapter';
 
 const nodeTypes = {
@@ -37,10 +45,17 @@ function KnowFlowCanvas() {
   const [bundle, setBundle] = useState<GraphBundle | null>(null);
   const [nodes, setNodes] = useNodesState<ConversationFlowNode>([]);
   const [edges, setEdges] = useEdgesState<Edge>([]);
+  const { fitView, screenToFlowPosition } = useReactFlow<ConversationFlowNode, Edge>();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [pendingBranchView, setPendingBranchView] = useState<{
+    childNodeId: string;
+    sourceNodeId: string;
+  } | null>(null);
+  const isNodeDraggingRef = useRef(false);
+  const canvasFrameRef = useRef<HTMLElement>(null);
 
   const refresh = useCallback(async () => {
     setIsLoading(true);
@@ -81,13 +96,55 @@ function KnowFlowCanvas() {
     }
   }, [bundle, selectedNodeId]);
 
+  const deleteNodesByIds = useCallback(
+    async (nodeIds: string[]) => {
+      const uniqueNodeIds = [...new Set(nodeIds)];
+      if (uniqueNodeIds.length === 0) {
+        return;
+      }
+
+      setIsSaving(true);
+      setError(null);
+      try {
+        await Promise.all(uniqueNodeIds.map((nodeId) => deleteNode(nodeId)));
+        setSelectedNodeId((currentSelectedNodeId) =>
+          currentSelectedNodeId && uniqueNodeIds.includes(currentSelectedNodeId) ? null : currentSelectedNodeId,
+        );
+        setPendingBranchView((currentPendingBranchView) =>
+          currentPendingBranchView &&
+          (uniqueNodeIds.includes(currentPendingBranchView.childNodeId) ||
+            uniqueNodeIds.includes(currentPendingBranchView.sourceNodeId))
+            ? null
+            : currentPendingBranchView,
+        );
+        await refresh();
+      } catch (deleteError) {
+        setError(deleteError instanceof Error ? deleteError.message : 'Unable to delete node');
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [refresh],
+  );
+
   const onNodesChange: OnNodesChange<ConversationFlowNode> = useCallback(
     (changes: NodeChange<ConversationFlowNode>[]) => {
-      setNodes((currentNodes: ConversationFlowNode[]) =>
-        applyNodeChanges<ConversationFlowNode>(changes, currentNodes),
+      const removeChanges = changes.filter(isRemoveNodeChange);
+      const persistentChanges = changes.filter(
+        (change) => !isRemoveNodeChange(change) && !isSelectionNodeChange(change),
       );
 
-      const completedPositionChanges = changes.filter(isCompletedPositionChange);
+      if (persistentChanges.length > 0) {
+        setNodes((currentNodes: ConversationFlowNode[]) =>
+          applyNodeChanges<ConversationFlowNode>(persistentChanges, currentNodes),
+        );
+      }
+
+      if (removeChanges.length > 0) {
+        void deleteNodesByIds(removeChanges.map((change) => change.id));
+      }
+
+      const completedPositionChanges = persistentChanges.filter(isCompletedPositionChange);
 
       for (const change of completedPositionChanges) {
         void updateNodeLayout(change.id, {
@@ -98,7 +155,7 @@ function KnowFlowCanvas() {
         });
       }
     },
-    [setNodes],
+    [deleteNodesByIds, setNodes],
   );
 
   const onCreateNode = useCallback(async () => {
@@ -113,10 +170,9 @@ function KnowFlowCanvas() {
       const node = await createNode({
         graphId: bundle.activeGraph.id,
         layout: {
-          height: 180,
-          width: 280,
-          x: 100 + nextNodeNumber * 36,
-          y: 120 + nextNodeNumber * 28,
+          height: 520,
+          width: 560,
+          ...newNodePositionFromViewport(canvasFrameRef.current, screenToFlowPosition),
         },
         title: `Conversation ${nextNodeNumber}`,
       });
@@ -141,12 +197,13 @@ function KnowFlowCanvas() {
     } finally {
       setIsSaving(false);
     }
-  }, [bundle, nodes.length]);
+  }, [bundle, nodes.length, screenToFlowPosition]);
 
   const onBranchCreated = useCallback(
-    async (childNodeId: string) => {
+    async (childNodeId: string, sourceNodeId: string) => {
       await refresh();
-      setSelectedNodeId(childNodeId);
+      setSelectedNodeId(sourceNodeId);
+      setPendingBranchView({ childNodeId, sourceNodeId });
     },
     [refresh],
   );
@@ -155,6 +212,57 @@ function KnowFlowCanvas() {
     await refresh();
   }, [refresh]);
 
+  const onNodeDetailsChanged = useCallback(async (nodeId: string, input: { title?: string; summary?: string | null }) => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const updatedNode = await updateNodeDetails(nodeId, input);
+      setBundle((currentBundle) =>
+        currentBundle
+          ? {
+              ...currentBundle,
+              nodes: currentBundle.nodes.map((node) => (node.id === nodeId ? updatedNode : node)),
+            }
+          : currentBundle,
+      );
+    } catch (detailsError) {
+      setError(detailsError instanceof Error ? detailsError.message : 'Unable to save node details');
+      throw detailsError;
+    } finally {
+      setIsSaving(false);
+    }
+  }, []);
+
+  const onNodeResizeEnded = useCallback(
+    async (nodeId: string, layout: Required<NodeLayout>) => {
+      setIsSaving(true);
+      setError(null);
+      try {
+        const updatedNode = await updateNodeLayout(nodeId, layout);
+        setBundle((currentBundle) =>
+          currentBundle
+            ? {
+                ...currentBundle,
+                nodes: currentBundle.nodes.map((node) => (node.id === nodeId ? updatedNode : node)),
+              }
+            : currentBundle,
+        );
+      } catch (resizeError) {
+        setError(resizeError instanceof Error ? resizeError.message : 'Unable to save node size');
+      } finally {
+        setIsSaving(false);
+      }
+    },
+    [],
+  );
+
+  const onNodeDeleteRequested = useCallback(
+    async (nodeId: string) => {
+      await deleteNodesByIds([nodeId]);
+    },
+    [deleteNodesByIds],
+  );
+
   useEffect(() => {
     if (!bundle) {
       setNodes([]);
@@ -162,12 +270,52 @@ function KnowFlowCanvas() {
     }
 
     setNodes(
-      toReactFlowNodes(bundle.nodes, bundle, {
-        onBranchCreated,
-        onNodeMessagesChanged,
-      }),
+      toReactFlowNodes(
+        bundle.nodes,
+        bundle,
+        {
+          onBranchCreated,
+          onNodeDetailsChanged,
+          onNodeDeleteRequested,
+          onNodeMessagesChanged,
+          onNodeResizeEnded,
+        },
+        selectedNodeId,
+      ),
     );
-  }, [bundle, onBranchCreated, onNodeMessagesChanged, setNodes]);
+  }, [
+    bundle,
+    onBranchCreated,
+    onNodeDetailsChanged,
+    onNodeDeleteRequested,
+    onNodeMessagesChanged,
+    onNodeResizeEnded,
+    selectedNodeId,
+    setNodes,
+  ]);
+
+  useEffect(() => {
+    if (!pendingBranchView) {
+      return;
+    }
+
+    const hasSourceNode = nodes.some((node) => node.id === pendingBranchView.sourceNodeId);
+    const hasChildNode = nodes.some((node) => node.id === pendingBranchView.childNodeId);
+    if (!hasSourceNode || !hasChildNode) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void fitView({
+        duration: 320,
+        nodes: [{ id: pendingBranchView.sourceNodeId }, { id: pendingBranchView.childNodeId }],
+        padding: 0.3,
+      });
+      setPendingBranchView(null);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [fitView, nodes, pendingBranchView]);
 
   const onConnect = useCallback(
     async (connection: Connection) => {
@@ -233,7 +381,7 @@ function KnowFlowCanvas() {
       {error ? <div className="error-banner">{error}</div> : null}
 
       <div className="workspace">
-        <section className="canvas-frame" aria-label="KnowFlow graph canvas">
+        <section className="canvas-frame" aria-label="KnowFlow graph canvas" ref={canvasFrameRef}>
           <ReactFlow
             edges={edges}
             fitView
@@ -241,7 +389,20 @@ function KnowFlowCanvas() {
             nodeTypes={nodeTypes}
             nodes={nodes}
             onConnect={onConnect}
-            onNodeClick={(_, node) => setSelectedNodeId(node.id)}
+            nodeClickDistance={5}
+            onNodeClick={(_, node) => {
+              if (!isNodeDraggingRef.current) {
+                setSelectedNodeId(node.id);
+              }
+            }}
+            onNodeDragStart={() => {
+              isNodeDraggingRef.current = true;
+            }}
+            onNodeDragStop={() => {
+              window.setTimeout(() => {
+                isNodeDraggingRef.current = false;
+              }, 0);
+            }}
             onNodesChange={onNodesChange}
             onPaneClick={() => setSelectedNodeId(null)}
           >
@@ -282,4 +443,30 @@ function isCompletedPositionChange(
   change: NodeChange<ConversationFlowNode>,
 ): change is NodePositionChange & { position: { x: number; y: number } } {
   return change.type === 'position' && change.dragging === false && Boolean(change.position);
+}
+
+function isRemoveNodeChange(
+  change: NodeChange<ConversationFlowNode>,
+): change is NodeChange<ConversationFlowNode> & { id: string; type: 'remove' } {
+  return change.type === 'remove';
+}
+
+function isSelectionNodeChange(change: NodeChange<ConversationFlowNode>) {
+  return change.type === 'select';
+}
+
+function newNodePositionFromViewport(
+  canvasElement: HTMLElement | null,
+  screenToFlowPosition: (position: { x: number; y: number }) => { x: number; y: number },
+) {
+  const bounds = canvasElement?.getBoundingClientRect();
+  const center = screenToFlowPosition({
+    x: (bounds?.left ?? 0) + (bounds?.width ?? window.innerWidth) / 2,
+    y: (bounds?.top ?? 0) + (bounds?.height ?? window.innerHeight) / 2,
+  });
+
+  return {
+    x: center.x - 280,
+    y: center.y - 260,
+  };
 }

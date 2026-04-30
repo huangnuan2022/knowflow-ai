@@ -57,8 +57,16 @@ export async function createNode(input: {
   });
 }
 
-export async function updateNodeLayout(nodeId: string, layout: Required<Pick<NodeLayout, 'x' | 'y'>>) {
+export async function deleteNode(nodeId: string) {
+  return del<DomainNode>(`/nodes/${nodeId}`);
+}
+
+export async function updateNodeLayout(nodeId: string, layout: NodeLayout) {
   return patch<DomainNode>(`/nodes/${nodeId}`, { layout });
+}
+
+export async function updateNodeDetails(nodeId: string, input: { title?: string; summary?: string | null }) {
+  return patch<DomainNode>(`/nodes/${nodeId}`, input);
 }
 
 export async function createManualEdge(input: { graphId: string; sourceNodeId: string; targetNodeId: string }) {
@@ -176,6 +184,10 @@ async function post<T>(path: string, body: RequestBody) {
 
 async function patch<T>(path: string, body: RequestBody) {
   return request<T>(path, { body, method: 'PATCH' });
+}
+
+async function del<T>(path: string) {
+  return request<T>(path, { method: 'DELETE' });
 }
 
 async function request<T>(path: string, options: { body?: RequestBody; method?: string } = {}) {

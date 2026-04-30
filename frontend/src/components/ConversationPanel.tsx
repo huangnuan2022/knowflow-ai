@@ -1,4 +1,4 @@
-import { Bot, GitBranch, Loader2, Send, UserRound } from 'lucide-react';
+import { Bot, GitBranch, Loader2, Send } from 'lucide-react';
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createBranchFromSelection,
@@ -14,7 +14,7 @@ import { readTextSelectionWithin, TextSelectionRange } from '../lib/textSelectio
 type ConversationPanelProps = {
   branchContext?: BranchContext;
   node?: DomainNode;
-  onBranchCreated?: (childNodeId: string) => Promise<void> | void;
+  onBranchCreated?: (childNodeId: string, sourceNodeId: string) => Promise<void> | void;
   onNodeMessagesChanged?: () => Promise<void> | void;
   readOnly?: boolean;
 };
@@ -157,7 +157,7 @@ export function ConversationPanel({
 
       setSelectionDraft(null);
       window.getSelection()?.removeAllRanges();
-      await onBranchCreated?.(result.childNode.id);
+      await onBranchCreated?.(result.childNode.id, node.id);
     } catch (branchError) {
       setError(branchError instanceof Error ? branchError.message : 'Unable to create branch');
     } finally {
@@ -269,7 +269,6 @@ function MessageBubble({
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const isAssistant = message.role === 'ASSISTANT';
-  const Icon = isAssistant ? Bot : UserRound;
   const bubbleClassName = [
     'message-bubble',
     isAssistant ? 'message-bubble--assistant' : 'message-bubble--user',
@@ -286,11 +285,12 @@ function MessageBubble({
 
   return (
     <article className={bubbleClassName}>
-      <span className="message-bubble__icon" aria-hidden="true">
-        <Icon size={16} />
-      </span>
+      {isAssistant ? (
+        <span className="message-bubble__icon" aria-hidden="true">
+          <Bot size={16} />
+        </span>
+      ) : null}
       <div>
-        <div className="message-bubble__role">{message.role.toLowerCase()}</div>
         <div
           className={`message-bubble__content ${isAssistant ? 'message-bubble__content--selectable' : ''}`}
           onKeyUp={captureSelection}

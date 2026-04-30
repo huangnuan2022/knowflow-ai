@@ -43,7 +43,7 @@ Current frontend artifacts:
 - `frontend/src/lib/reactFlowAdapter.ts` maps KnowFlow domain nodes and edges into React Flow nodes, edge handles, and edges.
 - `frontend/src/lib/api.ts` calls backend domain endpoints and seeds a local demo project/graph when none exists.
 - `frontend/src/lib/textSelection.ts` reads plain-text DOM selection offsets for v0 branch creation.
-- `frontend/src/components/ConversationNode.tsx` renders the React Flow node shell, collapsed message previews, expanded inline conversation threads, node-local ask controls, inline text selection, branch actions, and branch highlight handles.
+- `frontend/src/components/ConversationNode.tsx` renders the React Flow node shell, editable title and summary fields, collapsed branch-point previews, expanded inline conversation threads, node-local ask controls, inline text selection, branch actions, resize controls, and branch highlight handles.
 - `frontend/src/components/ConversationPanel.tsx` renders a secondary read-only inspector for the selected node's messages, persisted highlights, and child branch context.
 - `frontend/src/App.tsx` owns canvas state, manual node creation, manual edge creation, layout persistence, and selected-node panel wiring.
 
@@ -51,8 +51,16 @@ Canvas-first interaction rule:
 
 - The expanded canvas node is the primary place to read, ask, select AI response text, and branch.
 - The right sidebar should not be required for the core branch workflow; it is an alternative reader/inspector.
+- The collapsed canvas node should be a compact navigation object: editable title, editable summary, and branch points only. Message text and inline highlights are reserved for the expanded/focused node.
+- Expanded/focused state should be driven by KnowFlow's `selectedNodeId`, not by transient React Flow selection changes. This prevents drag, resize, or internal selection events from accidentally rendering expanded conversation controls inside a collapsed node.
 - User messages should appear as compact right-aligned bubbles, while assistant responses should read as broader prose inside the node.
 - Persisted highlights should render in place when possible, and branch edges should use source handles attached to those highlights. A collapsed node may fall back to stable highlight chips so existing edges still have visible handles.
+- After creating a branch, keep the source node selected and expanded, then fit the source and child node into view. Selecting the child immediately hides the source highlight and makes the branch feel disconnected.
+- Node deletion must be a domain API operation. React Flow delete/remove events should call the backend delete boundary and refresh server state; removing nodes only from local canvas state causes deleted nodes to reappear on the next refresh.
+- Dragging a node should not expand it; expansion is a click/focus action. This keeps basic canvas movement predictable.
+- Resizing is allowed on selected/expanded nodes and persists to node layout metadata through the backend node update boundary.
+- Node creation should use the current viewport center converted to graph coordinates. Fixed default graph coordinates make nodes appear in surprising off-screen or bottom-of-view positions after the user pans or zooms.
+- Branch edges should have a higher z-index than node cards so the line segment from an inline highlight handle is not hidden behind the source node. Use moderate opacity so lines do not overpower text.
 
 ## Rich Text And Selection Direction
 
