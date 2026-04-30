@@ -465,6 +465,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
         .join(' ')}
       style={nodeAccentStyle}
       ref={nodeRef}
+      data-testid="conversation-node"
     >
       <NodeResizer
         autoScale={false}
@@ -921,6 +922,7 @@ function CanvasMessage({
       <div className="canvas-message__body">
         <div
           className={`canvas-message__content ${isAssistant ? 'canvas-message__content--selectable' : ''}`}
+          data-testid="canvas-message-content"
           onKeyUp={captureSelection}
           onMouseUp={captureSelection}
           ref={contentRef}
@@ -941,6 +943,7 @@ function CanvasMessage({
           {selectionDraft ? (
             <button
               className="inline-branch-button"
+              data-testid="inline-branch-button"
               disabled={isBranching}
               onClick={(event) => {
                 event.stopPropagation();
@@ -1054,6 +1057,7 @@ function HighlightedContent({
           onMouseUp={canOpenBranchMenu ? (event) => event.stopPropagation() : undefined}
           role={canOpenBranchMenu ? 'button' : undefined}
           data-highlight-id={canOpenBranchMenu ? range.id : undefined}
+          data-testid={canOpenBranchMenu ? 'branch-highlight' : undefined}
           tabIndex={canOpenBranchMenu ? 0 : undefined}
           title={canOpenBranchMenu ? 'Open branch actions' : undefined}
         >

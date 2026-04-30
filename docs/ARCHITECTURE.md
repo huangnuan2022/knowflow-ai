@@ -330,6 +330,8 @@ npm run prisma:validate
 npm run build
 npm test
 npm run test:integration
+npx playwright install chromium
+npm run test:acceptance
 ```
 
 Current frontend verification commands:
@@ -366,6 +368,8 @@ The frontend defaults to the deterministic `stub` provider for local demos. Real
 `npm run db:ensure:test` creates `knowflow_test` if an existing Docker volume was initialized before the test database existed.
 
 `npm run prisma:validate`, `npm run db:migrate`, `npm run db:migrate:test`, and `npm run test:integration` use local fallback database URLs if environment variables are not set. Applying migrations and running integration tests still require a reachable PostgreSQL instance.
+
+`npm run test:acceptance` starts the local PostgreSQL service, applies test migrations, and runs the Playwright v0 core workflow acceptance test against isolated backend and frontend ports. Run `npx playwright install chromium` once before the first local acceptance test run.
 
 ## Open Questions
 
