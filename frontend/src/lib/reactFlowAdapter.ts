@@ -35,6 +35,14 @@ export type BranchColor = {
   text: string;
 };
 
+export type EdgeAvoidRect = {
+  height: number;
+  id: string;
+  width: number;
+  x: number;
+  y: number;
+};
+
 export type ConversationNodeActions = {
   onBranchCreated?: (childNodeId: string, sourceNodeId: string) => Promise<void> | void;
   onBranchTargetSelected?: (targetNodeId: string, sourceNodeId: string) => void;
@@ -42,6 +50,7 @@ export type ConversationNodeActions = {
   onNodeDeleteRequested?: (nodeId: string) => Promise<void> | void;
   onNodeMessagesChanged?: () => Promise<void> | void;
   onNodeResizeEnded?: (nodeId: string, layout: Required<NodeLayout>) => Promise<void> | void;
+  onVisibleBranchHighlightsChanged?: (nodeId: string, visibleHighlightIds: string[]) => void;
 };
 
 export type ConversationNodeData = Record<string, unknown> & {
@@ -61,6 +70,7 @@ export type ConversationNodeData = Record<string, unknown> & {
   onNodeDeleteRequested?: (nodeId: string) => Promise<void> | void;
   onNodeMessagesChanged?: () => Promise<void> | void;
   onNodeResizeEnded?: (nodeId: string, layout: Required<NodeLayout>) => Promise<void> | void;
+  onVisibleBranchHighlightsChanged?: (nodeId: string, visibleHighlightIds: string[]) => void;
   summary?: string | null;
   title: string;
   type: string;
@@ -69,8 +79,12 @@ export type ConversationNodeData = Record<string, unknown> & {
 export type ConversationFlowNode = Node<ConversationNodeData>;
 
 export type KnowFlowEdgeData = Record<string, unknown> & {
+  avoidRects?: EdgeAvoidRect[];
   color?: BranchColor;
   edgeType: EdgeType;
+  isDimmed?: boolean;
+  isFocused?: boolean;
+  isRelatedToSelected?: boolean;
   label?: string | null;
   onEdgeDeleteRequested?: (edgeId: string) => Promise<void> | void;
   onEdgeLabelChanged?: (edgeId: string, label: string) => Promise<void> | void;
@@ -94,8 +108,16 @@ export function branchHighlightHandleId(highlightId: string) {
   return `branch-highlight-${highlightId}`;
 }
 
+export function branchTargetHandleIdForSide(side: ManualHandleSide) {
+  return `${branchTargetHandleId}-${side}`;
+}
+
 export function manualNodeHandleId(kind: 'source' | 'target', side: ManualHandleSide) {
   return `manual-${kind}-${side}`;
+}
+
+export function isManualHandleId(handleId?: string | null) {
+  return isManualSourceHandleId(handleId) || isManualTargetHandleId(handleId);
 }
 
 export function isManualSourceHandleId(handleId?: string | null) {
@@ -117,13 +139,18 @@ export function toReactFlowNodes(
 
   return nodes.map((node, index) => {
     const isSelected = node.id === selectedNodeId;
+    const branchHighlights = branchHighlightsByNodeId[node.id] ?? [];
+    const collapsedHeight = collapsedNodeAutoHeight(node, branchHighlights.length);
     const width = Math.max(numberOrDefault(node.layout?.width, isSelected ? 560 : 340), isSelected ? 520 : 300);
-    const height = Math.max(numberOrDefault(node.layout?.height, isSelected ? 520 : 220), isSelected ? 420 : 180);
+    const height = Math.max(
+      numberOrDefault(node.layout?.height, isSelected ? 520 : collapsedHeight),
+      isSelected ? 420 : collapsedHeight,
+    );
 
     return {
       data: {
         branchContext: findInboundBranchContext(bundle?.edges, node.id),
-        branchHighlights: branchHighlightsByNodeId[node.id] ?? [],
+        branchHighlights,
         branchTargetsByHighlightId,
         highlightsByMessageId: bundle?.highlightsByMessageId ?? {},
         isExpanded: isSelected,
@@ -142,6 +169,7 @@ export function toReactFlowNodes(
         onNodeDeleteRequested: actions.onNodeDeleteRequested,
         onNodeMessagesChanged: actions.onNodeMessagesChanged,
         onNodeResizeEnded: actions.onNodeResizeEnded,
+        onVisibleBranchHighlightsChanged: actions.onVisibleBranchHighlightsChanged,
         accentColor: findInboundBranchColor(bundle?.edges, node.id),
         summary: node.summary,
         title: node.title,
@@ -168,20 +196,35 @@ export function toReactFlowEdges(
   actions: ConversationEdgeActions = {},
   selectedNodeId?: string | null,
   nodes: DomainNode[] = [],
+  visibleBranchHighlightIdsByNodeId: Record<string, string[]> = {},
 ): ConversationFlowEdge[] {
   const nodesById = new Map(nodes.map((node) => [node.id, node]));
 
-  return edges.map((edge) => {
+  return edges.filter((edge) => shouldRenderEdge(edge, visibleBranchHighlightIdsByNodeId)).map((edge) => {
     const isBranchEdge = edge.type === 'BRANCH';
-    const shouldRenderAboveSourceNode = isBranchEdge && edge.sourceNodeId === selectedNodeId;
-    const manualSides = isBranchEdge ? undefined : getManualEdgeHandleSides(edge, nodesById);
+    const hasSelectedNode = Boolean(selectedNodeId);
+    const isRelatedToSelected =
+      hasSelectedNode && (edge.sourceNodeId === selectedNodeId || edge.targetNodeId === selectedNodeId);
+    const isDimmed = hasSelectedNode && !isRelatedToSelected;
+    const isFocused = hasSelectedNode && isRelatedToSelected;
+    const edgeSides = getManualEdgeHandleSides(edge, nodesById);
     const branchColor = isBranchEdge ? colorForHighlightId(edge.sourceHighlightId ?? edge.id) : undefined;
 
     return {
-      className: isBranchEdge ? 'branch-edge' : undefined,
+      className: [
+        isBranchEdge ? 'branch-edge' : 'manual-edge',
+        isFocused ? 'is-focused' : '',
+        isDimmed ? 'is-dimmed' : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
       data: {
         color: branchColor,
         edgeType: edge.type,
+        avoidRects: isBranchEdge && isFocused ? getEdgeAvoidRects(edge, nodesById) : undefined,
+        isDimmed,
+        isFocused,
+        isRelatedToSelected,
         label: edge.label,
         onEdgeDeleteRequested: actions.onEdgeDeleteRequested,
         onEdgeLabelChanged: actions.onEdgeLabelChanged,
@@ -199,14 +242,51 @@ export function toReactFlowEdges(
         ? edge.sourceHighlightId
           ? branchHighlightHandleId(edge.sourceHighlightId)
           : undefined
-        : manualNodeHandleId('source', manualSides?.source ?? 'right'),
+        : manualNodeHandleId('source', edgeSides.source),
       style: isBranchEdge ? { stroke: branchColor?.edge ?? '#2563eb', strokeOpacity: 0.54, strokeWidth: 1.75 } : undefined,
       target: edge.targetNodeId,
-      targetHandle: isBranchEdge ? branchTargetHandleId : manualNodeHandleId('target', manualSides?.target ?? 'left'),
+      targetHandle: isBranchEdge ? branchTargetHandleIdForSide(edgeSides.target) : manualNodeHandleId('target', edgeSides.target),
       type: 'editable',
-      zIndex: shouldRenderAboveSourceNode ? 1200 : 10,
+      zIndex: edgeZIndex(edge.type, isDimmed, isFocused),
     };
   });
+}
+
+function getEdgeAvoidRects(edge: DomainEdge, nodesById: Map<string, DomainNode>): EdgeAvoidRect[] {
+  return Array.from(nodesById.values())
+    .filter((node) => node.id !== edge.sourceNodeId && node.id !== edge.targetNodeId)
+    .map((node) => ({
+      height: numberOrDefault(node.layout?.height, 220),
+      id: node.id,
+      width: numberOrDefault(node.layout?.width, 340),
+      x: numberOrDefault(node.layout?.x, 0),
+      y: numberOrDefault(node.layout?.y, 0),
+    }));
+}
+
+function edgeZIndex(edgeType: EdgeType, isDimmed: boolean, isFocused: boolean) {
+  if (isDimmed) {
+    return 1;
+  }
+
+  if (isFocused && edgeType === 'BRANCH') {
+    return 1200;
+  }
+
+  if (isFocused) {
+    return 70;
+  }
+
+  return edgeType === 'BRANCH' ? 40 : 10;
+}
+
+function shouldRenderEdge(edge: DomainEdge, visibleBranchHighlightIdsByNodeId: Record<string, string[]>) {
+  if (edge.type !== 'BRANCH' || !edge.sourceHighlightId) {
+    return true;
+  }
+
+  const visibleHighlightIds = visibleBranchHighlightIdsByNodeId[edge.sourceNodeId];
+  return !visibleHighlightIds || visibleHighlightIds.includes(edge.sourceHighlightId);
 }
 
 function groupBranchHighlightsByNodeId(
@@ -312,6 +392,14 @@ function getNodeCenter(node: DomainNode) {
 
 function previewMessages(messages: NodeMessagePreview[]) {
   return [...messages].sort((left, right) => left.sequence - right.sequence).slice(-3);
+}
+
+function collapsedNodeAutoHeight(node: DomainNode, branchHighlightCount: number) {
+  const visibleBranchCount = Math.min(branchHighlightCount, 5);
+  const summaryHeight = node.summary ? 46 : 0;
+  const branchListHeight = branchHighlightCount > 0 ? 24 + visibleBranchCount * 39 : 24;
+
+  return Math.max(180, 78 + summaryHeight + branchListHeight);
 }
 
 function findInboundBranchContext(edges: DomainEdge[] | undefined, nodeId: string) {

@@ -1,6 +1,7 @@
 import {
   Background,
   Connection,
+  ConnectionMode,
   ConnectionLineType,
   Controls,
   MiniMap,
@@ -14,7 +15,7 @@ import {
   useNodesState,
   useReactFlow,
 } from '@xyflow/react';
-import { Plus, RefreshCw } from 'lucide-react';
+import { AlertTriangle, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ConversationNode } from './components/ConversationNode';
 import { ConversationPanel } from './components/ConversationPanel';
@@ -33,8 +34,7 @@ import { DomainEdge, GraphBundle, NodeLayout } from './lib/domain';
 import {
   ConversationFlowEdge,
   ConversationFlowNode,
-  isManualSourceHandleId,
-  isManualTargetHandleId,
+  isManualHandleId,
   toReactFlowEdges,
   toReactFlowNodes,
 } from './lib/reactFlowAdapter';
@@ -59,11 +59,16 @@ function KnowFlowCanvas() {
   const [bundle, setBundle] = useState<GraphBundle | null>(null);
   const [nodes, setNodes] = useNodesState<ConversationFlowNode>([]);
   const [edges, setEdges] = useEdgesState<ConversationFlowEdge>([]);
-  const { fitView, screenToFlowPosition } = useReactFlow<ConversationFlowNode, ConversationFlowEdge>();
+  const { fitView, screenToFlowPosition, setCenter } = useReactFlow<ConversationFlowNode, ConversationFlowEdge>();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [pendingDeleteNodeIds, setPendingDeleteNodeIds] = useState<string[]>([]);
+  const [pendingFocusNodeId, setPendingFocusNodeId] = useState<string | null>(null);
+  const [visibleBranchHighlightIdsByNodeId, setVisibleBranchHighlightIdsByNodeId] = useState<
+    Record<string, string[]>
+  >({});
   const [pendingBranchView, setPendingBranchView] = useState<{
     childNodeId: string;
     sourceNodeId: string;
@@ -93,7 +98,7 @@ function KnowFlowCanvas() {
   const graphTitle = bundle?.activeGraph.title ?? 'KnowFlow';
   const projectTitle = bundle?.activeProject.title ?? 'Workspace';
   const nodeCount = nodes.length;
-  const edgeCount = edges.length;
+  const edgeCount = bundle?.edges.length ?? edges.length;
   const selectedNode = useMemo(
     () => bundle?.nodes.find((node) => node.id === selectedNodeId),
     [bundle?.nodes, selectedNodeId],
@@ -102,6 +107,13 @@ function KnowFlowCanvas() {
     () => findInboundBranchContext(bundle?.edges, selectedNodeId),
     [bundle?.edges, selectedNodeId],
   );
+  const pendingDeleteNodeTitle = useMemo(() => {
+    if (pendingDeleteNodeIds.length !== 1) {
+      return null;
+    }
+
+    return bundle?.nodes.find((node) => node.id === pendingDeleteNodeIds[0])?.title ?? null;
+  }, [bundle?.nodes, pendingDeleteNodeIds]);
 
   useEffect(() => {
     if (selectedNodeId && bundle && !bundle.nodes.some((node) => node.id === selectedNodeId)) {
@@ -154,7 +166,7 @@ function KnowFlowCanvas() {
       }
 
       if (removeChanges.length > 0) {
-        void deleteNodesByIds(removeChanges.map((change) => change.id));
+        setPendingDeleteNodeIds([...new Set(removeChanges.map((change) => change.id))]);
       }
 
       const completedPositionChanges = persistentChanges.filter(isCompletedPositionChange);
@@ -251,9 +263,10 @@ function KnowFlowCanvas() {
     await refresh();
   }, [refresh]);
 
-  const onBranchTargetSelected = useCallback((targetNodeId: string, sourceNodeId: string) => {
+  const onBranchTargetSelected = useCallback((targetNodeId: string, _sourceNodeId: string) => {
     setSelectedNodeId(targetNodeId);
-    setPendingBranchView({ childNodeId: targetNodeId, sourceNodeId });
+    setPendingBranchView(null);
+    setPendingFocusNodeId(targetNodeId);
   }, []);
 
   const onEdgeLabelChanged = useCallback(async (edgeId: string, label: string) => {
@@ -343,11 +356,32 @@ function KnowFlowCanvas() {
   );
 
   const onNodeDeleteRequested = useCallback(
-    async (nodeId: string) => {
-      await deleteNodesByIds([nodeId]);
+    (nodeId: string) => {
+      setPendingDeleteNodeIds([nodeId]);
     },
-    [deleteNodesByIds],
+    [],
   );
+
+  const onConfirmNodeDelete = useCallback(async () => {
+    const nodeIds = pendingDeleteNodeIds;
+    setPendingDeleteNodeIds([]);
+    await deleteNodesByIds(nodeIds);
+  }, [deleteNodesByIds, pendingDeleteNodeIds]);
+
+  const onVisibleBranchHighlightsChanged = useCallback((nodeId: string, visibleHighlightIds: string[]) => {
+    setVisibleBranchHighlightIdsByNodeId((currentVisibleIds) => {
+      const uniqueSortedVisibleIds = [...new Set(visibleHighlightIds)].sort();
+      const currentNodeVisibleIds = currentVisibleIds[nodeId] ?? [];
+      if (arraysEqual(currentNodeVisibleIds, uniqueSortedVisibleIds)) {
+        return currentVisibleIds;
+      }
+
+      return {
+        ...currentVisibleIds,
+        [nodeId]: uniqueSortedVisibleIds,
+      };
+    });
+  }, []);
 
   useEffect(() => {
     if (!bundle) {
@@ -366,6 +400,7 @@ function KnowFlowCanvas() {
           onNodeDeleteRequested,
           onNodeMessagesChanged,
           onNodeResizeEnded,
+          onVisibleBranchHighlightsChanged,
         },
         selectedNodeId,
       ),
@@ -378,6 +413,7 @@ function KnowFlowCanvas() {
     onNodeDeleteRequested,
     onNodeMessagesChanged,
     onNodeResizeEnded,
+    onVisibleBranchHighlightsChanged,
     selectedNodeId,
     setNodes,
   ]);
@@ -385,10 +421,23 @@ function KnowFlowCanvas() {
   useEffect(() => {
     setEdges(
       bundle
-        ? toReactFlowEdges(bundle.edges, { onEdgeDeleteRequested, onEdgeLabelChanged }, selectedNodeId, bundle.nodes)
+        ? toReactFlowEdges(
+            bundle.edges,
+            { onEdgeDeleteRequested, onEdgeLabelChanged },
+            selectedNodeId,
+            bundle.nodes,
+            visibleBranchHighlightIdsByNodeId,
+          )
         : [],
     );
-  }, [bundle, onEdgeDeleteRequested, onEdgeLabelChanged, selectedNodeId, setEdges]);
+  }, [
+    bundle,
+    onEdgeDeleteRequested,
+    onEdgeLabelChanged,
+    selectedNodeId,
+    setEdges,
+    visibleBranchHighlightIdsByNodeId,
+  ]);
 
   useEffect(() => {
     if (!pendingBranchView) {
@@ -413,6 +462,30 @@ function KnowFlowCanvas() {
     return () => window.clearTimeout(timeoutId);
   }, [fitView, nodes, pendingBranchView]);
 
+  useEffect(() => {
+    if (!pendingFocusNodeId) {
+      return;
+    }
+
+    const targetNode = nodes.find((node) => node.id === pendingFocusNodeId);
+    if (!targetNode) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const width = numberOrDefault(targetNode.style?.width, numberOrDefault(targetNode.data.layout?.width, 560));
+      const height = numberOrDefault(targetNode.style?.height, numberOrDefault(targetNode.data.layout?.height, 520));
+
+      void setCenter(targetNode.position.x + width / 2, targetNode.position.y + height / 2, {
+        duration: 320,
+        zoom: 0.95,
+      });
+      setPendingFocusNodeId(null);
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [nodes, pendingFocusNodeId, setCenter]);
+
   const onConnect = useCallback(
     async (connection: Connection) => {
       if (!bundle || !connection.source || !connection.target) {
@@ -426,7 +499,7 @@ function KnowFlowCanvas() {
         setError('Manual relationship edges need two different nodes.');
         return;
       }
-      if (!isManualSourceHandleId(connection.sourceHandle) || !isManualTargetHandleId(connection.targetHandle)) {
+      if (!isManualHandleId(connection.sourceHandle) || !isManualHandleId(connection.targetHandle)) {
         setError('Create manual relationship edges from collapsed node side handles.');
         return;
       }
@@ -493,6 +566,7 @@ function KnowFlowCanvas() {
             edges={edges}
             edgeTypes={edgeTypes}
             fitView
+            connectionMode={ConnectionMode.Loose}
             connectionLineType={ConnectionLineType.Bezier}
             minZoom={0.2}
             nodeTypes={nodeTypes}
@@ -503,6 +577,7 @@ function KnowFlowCanvas() {
             onNodeClick={(_, node) => {
               if (!isNodeDraggingRef.current) {
                 setSelectedNodeId(node.id);
+                setPendingFocusNodeId(node.id);
               }
             }}
             onNodeDragStart={() => {
@@ -529,7 +604,70 @@ function KnowFlowCanvas() {
           readOnly
         />
       </div>
+      {pendingDeleteNodeIds.length > 0 ? (
+        <DeleteConfirmDialog
+          isDeleting={isSaving}
+          nodeCount={pendingDeleteNodeIds.length}
+          nodeTitle={pendingDeleteNodeTitle}
+          onCancel={() => setPendingDeleteNodeIds([])}
+          onConfirm={() => void onConfirmNodeDelete()}
+        />
+      ) : null}
     </main>
+  );
+}
+
+function DeleteConfirmDialog({
+  isDeleting,
+  nodeCount,
+  nodeTitle,
+  onCancel,
+  onConfirm,
+}: {
+  isDeleting: boolean;
+  nodeCount: number;
+  nodeTitle: string | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const title = nodeCount === 1 ? 'Delete node?' : `Delete ${nodeCount} nodes?`;
+  const description =
+    nodeCount === 1
+      ? `This will delete ${nodeTitle ? `"${nodeTitle}"` : 'this node'} and its connected edges.`
+      : 'This will delete the selected nodes and their connected edges.';
+
+  return (
+    <div className="confirm-layer" role="presentation" onMouseDown={onCancel}>
+      <section
+        aria-describedby="delete-confirm-description"
+        aria-modal="true"
+        className="confirm-dialog"
+        onMouseDown={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <span className="confirm-dialog__icon" aria-hidden="true">
+          <AlertTriangle size={20} />
+        </span>
+        <div className="confirm-dialog__copy">
+          <h2>{title}</h2>
+          <p id="delete-confirm-description">{description}</p>
+        </div>
+        <div className="confirm-dialog__actions">
+          <button className="confirm-dialog__button" disabled={isDeleting} onClick={onCancel} type="button">
+            Cancel
+          </button>
+          <button
+            className="confirm-dialog__button confirm-dialog__button--danger"
+            disabled={isDeleting}
+            onClick={onConfirm}
+            type="button"
+          >
+            <Trash2 size={15} />
+            Delete
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
@@ -581,6 +719,10 @@ function newNodePositionFromViewport(
   };
 }
 
+function numberOrDefault(value: unknown, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
 function mergeNodeLayoutIntoBundle(bundle: GraphBundle, nodeId: string, layout: NodeLayout): GraphBundle {
   return {
     ...bundle,
@@ -596,4 +738,8 @@ function mergeNodeLayoutIntoBundle(bundle: GraphBundle, nodeId: string, layout: 
         : node,
     ),
   };
+}
+
+function arraysEqual(left: string[], right: string[]) {
+  return left.length === right.length && left.every((value, index) => value === right[index]);
 }

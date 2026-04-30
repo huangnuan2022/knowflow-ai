@@ -77,16 +77,26 @@ Started in Phase 3:
 - After branching, the source node remains expanded so the persisted highlight and outgoing branch edge stay visually connected.
 - Branch edges anchor to inline highlight spans in expanded source nodes, with stable highlight-chip anchors as the collapsed-node fallback.
 - Collapsed nodes show only the node title, node summary, and branch-points list. Conversation messages, inline highlights, edit controls, and ask/branch controls belong in the expanded node.
-- Persisted branch highlights and collapsed branch-point chips can be clicked to jump to the connected child node.
+- Collapsed branch-point lists should keep normal chip sizing and spacing from top to bottom. If the current node size cannot fit the list, the branch-point region scrolls; resizing the node larger should reveal more chips without stretching the gaps.
+- Persisted branch highlights and collapsed branch-point chips can be clicked to jump to connected child nodes. If one highlight has multiple child branches, the UI must show a compact target picker instead of silently jumping to the first child.
+- Selecting or jumping to a focused node should center it in the canvas at a readable zoom level, while branch creation can still fit both source and child into view.
 - Clicking a persisted inline highlight opens a compact menu with existing child branches and a "new branch from this highlight" action. Additional branches from the same selected text must reuse the existing `Highlight` record instead of duplicating it.
-- Persisted highlights use deterministic accent colors. Branch edges and child branch nodes inherit the same color so the provenance path is visually traceable without requiring a user color picker in v0.
+- Inline highlight action menus should render as floating overlays above the canvas so they are not clipped by node scroll boundaries.
+- Persisted highlights use deterministic accent colors. Branch edges and child branch nodes inherit the same color so the provenance path is visually traceable without requiring a user color picker in v0. Highlights with no branch target should not render as branch highlights in v0.
+- Expanded branch context is collapsed by default and opens on demand so selected source text is inspectable without dominating the node. Auto-generated selected text should not be duplicated as node summary; summary is reserved for user-authored node notes.
+- Expanded node message scrolling and collapsed branch-point scrolling must refresh visible highlight state. Branch edges should render only when their source highlight or branch-point chip is visible in the node viewport; hidden-source branch edges should be temporarily omitted rather than pointing into empty scroll space.
 - Dragging a node should move it without expanding it; clicking opens the expanded node.
 - New nodes should be created near the current visible canvas center, not at a fixed global graph coordinate.
 - Collapsed and expanded nodes can be resized from their borders, and resized dimensions are stored in node layout metadata.
 - Node title and summary editing from the frontend, saved through the backend node update boundary.
 - Manual edges can be created only between collapsed node-level handles and labeled as lightweight peer relationships. Collapsed nodes expose handles on all four sides so manual links are not limited to left-in/right-out placement. Manual edges are undirected by default, editable, and deletable. Branch points are reserved for branch navigation, not manual connection starts, and branch edge labels remain tied to selected source text.
-- Branch edge labels inherit the source highlight color, matching the highlight and child branch node. MVP edge routing uses simple bezier curves for branch and manual edges to avoid the snapped/merged look of orthogonal routing.
+- Manual edge gestures can start from any collapsed node side handle and end on any other collapsed node side handle. The frontend normalizes the gesture into a node-level peer relationship instead of treating the dragged handle direction as semantic graph direction.
+- Branch edge labels inherit the source highlight color, matching the highlight and child branch node. Branch edges should target the nearest side of the child node. Edge visibility should follow a focus-plus-context rule: edges related to the currently focused node are emphasized; unrelated edges are dimmed and their labels are hidden so dense graphs remain readable. Focused branch edges may use lightweight obstacle-aware routing around other node cards when a direct curve would be hidden by overlapping nodes. Manual edges and non-focused branch edges can keep simple bezier routing in v0.
+- Temporary text selections that have not been branched yet should clear when the user clicks outside the selected assistant message or inline Branch action.
 - The right sidebar acts as a secondary read-only inspector instead of the primary ask/branch surface.
+- Node deletion uses an in-app confirmation dialog instead of the browser's native confirm prompt.
+- Expanded nodes should use readable conversation-scale typography; collapsed nodes remain compact scan cards.
+- Resized collapsed nodes should let the branch-point list use the available vertical space instead of pinning all branch points to the top with excessive empty space below.
 
 Not implemented in Phase 3:
 

@@ -1,5 +1,5 @@
 import { Handle, NodeProps, NodeResizer, Position, ResizeParams, useUpdateNodeInternals } from '@xyflow/react';
-import { Bot, GitBranch, Loader2, MessageSquareText, Send, Trash2, UserRound } from 'lucide-react';
+import { Bot, ChevronDown, ChevronRight, GitBranch, Loader2, MessageSquareText, Send, Trash2, UserRound } from 'lucide-react';
 import {
   CSSProperties,
   FormEvent,
@@ -11,13 +11,14 @@ import {
   useRef,
   useState,
 } from 'react';
+import { createPortal } from 'react-dom';
 import { createBranchFromSelection, createRun, createUserMessage, executeRun } from '../lib/api';
 import { Highlight, Message, NodeLayout } from '../lib/domain';
 import {
   BranchColor,
   BranchTargetPreview,
   branchHighlightHandleId,
-  branchTargetHandleId,
+  branchTargetHandleIdForSide,
   ConversationNodeData,
   colorForHighlightId,
   manualHandleSides,
@@ -34,18 +35,44 @@ type InlineSelectionDraft = TextSelectionRange & {
   };
 };
 
+type HighlightAnchorState = {
+  visibility: 'above' | 'below' | 'visible';
+  y?: number;
+};
+
+type HighlightMenuState = {
+  id: string;
+  left: number;
+  top: number;
+};
+
+type BranchPointMenuState = {
+  highlightId: string;
+  left: number;
+  top: number;
+};
+
 export function ConversationNode({ data, id, selected }: NodeProps) {
   const nodeData = data as ConversationNodeData;
   const isExpanded = nodeData.isExpanded;
+  const editableSummary = useMemo(
+    () => getEditableSummary(nodeData.summary, nodeData.branchContext?.text),
+    [nodeData.branchContext?.text, nodeData.summary],
+  );
   const [draft, setDraft] = useState('');
   const [titleDraft, setTitleDraft] = useState(nodeData.title);
-  const [summaryDraft, setSummaryDraft] = useState(nodeData.summary ?? '');
+  const [summaryDraft, setSummaryDraft] = useState(editableSummary ?? '');
   const [selectionDraft, setSelectionDraft] = useState<InlineSelectionDraft | null>(null);
   const [isAsking, setIsAsking] = useState(false);
   const [isBranching, setIsBranching] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSavingDetails, setIsSavingDetails] = useState(false);
+  const [isContextExpanded, setIsContextExpanded] = useState(false);
+  const [highlightAnchorStates, setHighlightAnchorStates] = useState<Record<string, HighlightAnchorState>>({});
   const [error, setError] = useState<string | null>(null);
+  const nodeRef = useRef<HTMLElement>(null);
+  const threadRef = useRef<HTMLDivElement>(null);
+  const scrollFrameRef = useRef<number | null>(null);
   const updateNodeInternals = useUpdateNodeInternals();
   const nodeAccentStyle = useMemo(
     () => (nodeData.accentColor ? branchColorStyle(nodeData.accentColor, 'node') : undefined),
@@ -62,18 +89,104 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
     const collapsedHighlightIds = nodeData.branchHighlights.map((highlight) => highlight.id);
     return [...expandedHighlightIds, ...collapsedHighlightIds].sort().join('|');
   }, [nodeData.branchHighlights, nodeData.highlightsByMessageId, sortedMessages]);
+  const highlightAnchorStateKey = useMemo(
+    () =>
+      Object.entries(highlightAnchorStates)
+        .map(([highlightId, state]) => `${highlightId}:${state.visibility}:${Math.round(state.y ?? 0)}`)
+        .sort()
+        .join('|'),
+    [highlightAnchorStates],
+  );
 
   useEffect(() => {
     updateNodeInternals(id);
   }, [highlightHandleKey, id, isExpanded, updateNodeInternals]);
 
   useEffect(() => {
+    updateNodeInternals(id);
+  }, [id, isContextExpanded, updateNodeInternals]);
+
+  useEffect(() => {
+    updateNodeInternals(id);
+  }, [highlightAnchorStateKey, id, updateNodeInternals]);
+
+  useEffect(() => {
+    setIsContextExpanded(false);
+  }, [id, nodeData.branchContext?.text]);
+
+  useEffect(
+    () => () => {
+      if (scrollFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollFrameRef.current);
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
     setTitleDraft(nodeData.title);
   }, [nodeData.title]);
 
   useEffect(() => {
-    setSummaryDraft(nodeData.summary ?? '');
-  }, [nodeData.summary]);
+    setSummaryDraft(editableSummary ?? '');
+  }, [editableSummary]);
+
+  const refreshHighlightAnchorStates = useCallback(() => {
+    if (!isExpanded || !nodeRef.current || !threadRef.current) {
+      setHighlightAnchorStates({});
+      return;
+    }
+
+    const nodeRect = nodeRef.current.getBoundingClientRect();
+    const threadRect = threadRef.current.getBoundingClientRect();
+    const nextStates: Record<string, HighlightAnchorState> = {};
+
+    nodeRef.current.querySelectorAll<HTMLElement>('[data-highlight-id]').forEach((element) => {
+      const highlightId = element.dataset.highlightId;
+      if (!highlightId) {
+        return;
+      }
+
+      const highlightRect = element.getBoundingClientRect();
+      const isVisible =
+        highlightRect.bottom > threadRect.top &&
+        highlightRect.top < threadRect.bottom &&
+        highlightRect.right > threadRect.left &&
+        highlightRect.left < threadRect.right;
+
+      if (isVisible) {
+        nextStates[highlightId] = { visibility: 'visible' };
+        return;
+      }
+
+      if (highlightRect.bottom <= threadRect.top) {
+        nextStates[highlightId] = {
+          visibility: 'above',
+          y: Math.max(24, threadRect.top - nodeRect.top + 10),
+        };
+        return;
+      }
+
+      nextStates[highlightId] = {
+        visibility: 'below',
+        y: Math.min(nodeRect.height - 24, threadRect.bottom - nodeRect.top - 10),
+      };
+    });
+
+    setHighlightAnchorStates((currentStates) =>
+      areHighlightAnchorStatesEqual(currentStates, nextStates) ? currentStates : nextStates,
+    );
+    nodeData.onVisibleBranchHighlightsChanged?.(
+      id,
+      Object.entries(nextStates)
+        .filter(([, state]) => state.visibility === 'visible')
+        .map(([highlightId]) => highlightId),
+    );
+  }, [id, isExpanded, nodeData]);
+
+  useEffect(() => {
+    refreshHighlightAnchorStates();
+  }, [highlightHandleKey, isContextExpanded, refreshHighlightAnchorStates, sortedMessages]);
 
   const saveTitle = useCallback(async () => {
     const nextTitle = titleDraft.trim();
@@ -99,7 +212,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
 
   const saveSummary = useCallback(async () => {
     const nextSummary = summaryDraft.trim();
-    const currentSummary = (nodeData.summary ?? '').trim();
+    const currentSummary = (editableSummary ?? '').trim();
     if (nextSummary === currentSummary) {
       return;
     }
@@ -114,7 +227,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
     } finally {
       setIsSavingDetails(false);
     }
-  }, [id, nodeData, summaryDraft]);
+  }, [editableSummary, id, nodeData, summaryDraft]);
 
   const onTitleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
@@ -164,6 +277,41 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
     });
   }, []);
 
+  useEffect(() => {
+    if (!selectionDraft) {
+      return;
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      if (
+        target.closest('.inline-branch-button') ||
+        target.closest('.canvas-message__content') ||
+        target.closest('.highlight-branch-menu') ||
+        target.closest('.branch-point-menu')
+      ) {
+        return;
+      }
+
+      setSelectionDraft(null);
+      window.getSelection()?.removeAllRanges();
+    };
+
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, [selectionDraft]);
+
+  useEffect(() => {
+    if (!isExpanded && selectionDraft) {
+      setSelectionDraft(null);
+      window.getSelection()?.removeAllRanges();
+    }
+  }, [isExpanded, selectionDraft]);
+
   const onAsk = useCallback(
     async (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
@@ -204,7 +352,6 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
       const result = await createBranchFromSelection({
         childNode: {
           layout: buildChildLayout(nodeData.layout),
-          summary: `Selected context: ${truncateText(selectionDraft.selectedTextSnapshot, 96)}`,
           title: `Branch: ${truncateText(selectionDraft.selectedTextSnapshot, 44)}`,
         },
         context: {
@@ -238,7 +385,6 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
         const result = await createBranchFromSelection({
           childNode: {
             layout: buildChildLayout(nodeData.layout),
-            summary: `Selected context: ${truncateText(highlight.selectedTextSnapshot, 96)}`,
             title: `Branch: ${truncateText(highlight.selectedTextSnapshot, 44)}`,
           },
           context: {
@@ -270,11 +416,6 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
         return;
       }
 
-      const shouldDelete = window.confirm('Delete this node and its connected edges?');
-      if (!shouldDelete) {
-        return;
-      }
-
       setIsDeleting(true);
       setError(null);
       try {
@@ -300,6 +441,18 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
     [id, nodeData],
   );
 
+  const onScrollableContentScroll = useCallback(() => {
+    if (scrollFrameRef.current !== null) {
+      return;
+    }
+
+    scrollFrameRef.current = window.requestAnimationFrame(() => {
+      scrollFrameRef.current = null;
+      refreshHighlightAnchorStates();
+      updateNodeInternals(id);
+    });
+  }, [id, refreshHighlightAnchorStates, updateNodeInternals]);
+
   return (
     <article
       className={[
@@ -311,6 +464,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
         .filter(Boolean)
         .join(' ')}
       style={nodeAccentStyle}
+      ref={nodeRef}
     >
       <NodeResizer
         autoScale={false}
@@ -322,13 +476,16 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
         minWidth={isExpanded ? 520 : 300}
         onResizeEnd={onResizeEnd}
       />
-      <Handle
-        className="node-handle node-handle--branch-target"
-        id={branchTargetHandleId}
-        isConnectable={false}
-        position={Position.Top}
-        type="target"
-      />
+      {manualHandleSides.map((side) => (
+        <Handle
+          className={`node-handle node-handle--branch-target node-handle--branch-target-${side}`}
+          id={branchTargetHandleIdForSide(side)}
+          isConnectable={false}
+          key={`branch-target-${side}`}
+          position={manualHandlePosition(side)}
+          type="target"
+        />
+      ))}
       {manualHandleSides.map((side) => (
         <Handle
           className={`node-handle node-handle--manual node-handle--manual-target node-handle--manual-${side} ${
@@ -392,12 +549,31 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
             value={summaryDraft}
           />
           {nodeData.branchContext ? (
-            <div className="conversation-node__context nodrag nopan nowheel">
-              <span>Context</span>
-              <p>{nodeData.branchContext.text}</p>
-            </div>
+            <section
+              className={`conversation-node__context ${isContextExpanded ? 'is-expanded' : ''} nodrag nopan nowheel`}
+            >
+              <button
+                aria-expanded={isContextExpanded}
+                className="conversation-node__context-toggle"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  setIsContextExpanded((current) => !current);
+                }}
+                onPointerDown={(event) => event.stopPropagation()}
+                type="button"
+              >
+                <span>Branch context</span>
+                <strong>{truncateText(nodeData.branchContext.text, 88)}</strong>
+                {isContextExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              </button>
+              {isContextExpanded ? <p>{nodeData.branchContext.text}</p> : null}
+            </section>
           ) : null}
-          <div className="conversation-node__thread nodrag nopan nowheel">
+          <div
+            className="conversation-node__thread nodrag nopan nowheel"
+            onScroll={onScrollableContentScroll}
+            ref={threadRef}
+          >
             {error ? <div className="conversation-node__error">{error}</div> : null}
             {sortedMessages.length > 0 ? (
               sortedMessages.map((message) => (
@@ -411,6 +587,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
                   onBranch={onBranch}
                   onBranchFromHighlight={onBranchFromHighlight}
                   onBranchTargetSelected={nodeData.onBranchTargetSelected}
+                  highlightAnchorStates={highlightAnchorStates}
                   selectionDraft={selectionDraft?.messageId === message.id ? selectionDraft : null}
                   sourceNodeId={id}
                 />
@@ -443,7 +620,11 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
           </form>
         </>
       ) : (
-        <CollapsedNodeBody nodeData={nodeData} sourceNodeId={id} />
+        <CollapsedNodeBody
+          nodeData={nodeData}
+          onScrollableContentScroll={onScrollableContentScroll}
+          sourceNodeId={id}
+        />
       )}
 
       {manualHandleSides.map((side) => (
@@ -477,22 +658,118 @@ function manualHandlePosition(side: ManualHandleSide) {
 
 function CollapsedNodeBody({
   nodeData,
+  onScrollableContentScroll,
   sourceNodeId,
 }: {
   nodeData: ConversationNodeData;
+  onScrollableContentScroll: () => void;
   sourceNodeId: string;
 }) {
   const hasBranchHighlights = nodeData.branchHighlights.length > 0;
+  const editableSummary = getEditableSummary(nodeData.summary, nodeData.branchContext?.text);
+  const branchListRef = useRef<HTMLDivElement>(null);
+  const visibilityFrameRef = useRef<number | null>(null);
+  const [openBranchPointMenu, setOpenBranchPointMenu] = useState<BranchPointMenuState | null>(null);
+  const openBranchPoint = useMemo(
+    () => nodeData.branchHighlights.find((highlight) => highlight.id === openBranchPointMenu?.highlightId) ?? null,
+    [nodeData.branchHighlights, openBranchPointMenu?.highlightId],
+  );
+
+  const reportVisibleBranchHighlights = useCallback(() => {
+    if (!hasBranchHighlights) {
+      nodeData.onVisibleBranchHighlightsChanged?.(sourceNodeId, []);
+      return;
+    }
+
+    if (!branchListRef.current) {
+      nodeData.onVisibleBranchHighlightsChanged?.(
+        sourceNodeId,
+        nodeData.branchHighlights.map((highlight) => highlight.id),
+      );
+      return;
+    }
+
+    const listRect = branchListRef.current.getBoundingClientRect();
+    const visibleHighlightIds = Array.from(
+      branchListRef.current.querySelectorAll<HTMLElement>('[data-branch-highlight-id]'),
+    )
+      .filter((element) => {
+        const itemRect = element.getBoundingClientRect();
+        return itemRect.bottom > listRect.top && itemRect.top < listRect.bottom;
+      })
+      .map((element) => element.dataset.branchHighlightId)
+      .filter((highlightId): highlightId is string => Boolean(highlightId));
+
+    nodeData.onVisibleBranchHighlightsChanged?.(sourceNodeId, visibleHighlightIds);
+  }, [hasBranchHighlights, nodeData, sourceNodeId]);
+
+  const onBranchListScroll = useCallback(() => {
+    onScrollableContentScroll();
+    if (visibilityFrameRef.current !== null) {
+      return;
+    }
+
+    visibilityFrameRef.current = window.requestAnimationFrame(() => {
+      visibilityFrameRef.current = null;
+      reportVisibleBranchHighlights();
+    });
+  }, [onScrollableContentScroll, reportVisibleBranchHighlights]);
+
+  useEffect(() => {
+    reportVisibleBranchHighlights();
+  }, [reportVisibleBranchHighlights]);
+
+  useEffect(() => {
+    if (!openBranchPointMenu) {
+      return;
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      if (target.closest('.branch-point-menu') || target.closest('[data-branch-highlight-id]')) {
+        return;
+      }
+
+      setOpenBranchPointMenu(null);
+    };
+
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, [openBranchPointMenu]);
+
+  useEffect(
+    () => () => {
+      if (visibilityFrameRef.current !== null) {
+        window.cancelAnimationFrame(visibilityFrameRef.current);
+      }
+    },
+    [],
+  );
 
   return (
     <>
-      {nodeData.summary ? <p className="conversation-node__summary-preview">{nodeData.summary}</p> : null}
+      {editableSummary ? <p className="conversation-node__summary-preview">{editableSummary}</p> : null}
+      {!editableSummary && nodeData.branchContext ? (
+        <p className="conversation-node__branch-context-preview">
+          <span>Branch context:</span> {truncateText(nodeData.branchContext.text, 96)}
+        </p>
+      ) : null}
       {hasBranchHighlights ? (
-        <div className="conversation-node__highlights">
+        <div
+          className={`conversation-node__highlights nodrag nopan nowheel ${hasBranchHighlights ? 'is-scrollable' : ''}`}
+          onScroll={onBranchListScroll}
+          onWheel={(event) => event.stopPropagation()}
+          ref={branchListRef}
+        >
           <span>Branch points</span>
           {nodeData.branchHighlights.map((highlight) => (
             <div
               className="conversation-node__highlight"
+              data-branch-highlight-id={highlight.id}
               key={highlight.id}
               style={branchColorStyle(highlight.color, 'highlight')}
               title={highlight.text}
@@ -501,9 +778,17 @@ function CollapsedNodeBody({
                 className="conversation-node__highlight-button nodrag nopan"
                 onClick={(event) => {
                   event.stopPropagation();
-                  const firstBranch = highlight.branches[0];
-                  if (firstBranch) {
+                  if (highlight.branches.length === 1) {
+                    const firstBranch = highlight.branches[0];
                     nodeData.onBranchTargetSelected?.(firstBranch.nodeId, sourceNodeId);
+                    return;
+                  }
+
+                  if (highlight.branches.length > 1) {
+                    setOpenBranchPointMenu({
+                      highlightId: highlight.id,
+                      ...menuPositionForRect(event.currentTarget.getBoundingClientRect()),
+                    });
                   }
                 }}
                 disabled={highlight.branches.length === 0}
@@ -523,6 +808,18 @@ function CollapsedNodeBody({
               />
             </div>
           ))}
+          {openBranchPoint && openBranchPointMenu ? (
+            <BranchPointTargetMenu
+              branchTargets={openBranchPoint.branches}
+              color={openBranchPoint.color}
+              onClose={() => setOpenBranchPointMenu(null)}
+              onJumpToBranch={(targetNodeId) => {
+                setOpenBranchPointMenu(null);
+                nodeData.onBranchTargetSelected?.(targetNodeId, sourceNodeId);
+              }}
+              position={openBranchPointMenu}
+            />
+          ) : null}
         </div>
       ) : (
         <p className="conversation-node__empty">No branch points yet</p>
@@ -531,8 +828,53 @@ function CollapsedNodeBody({
   );
 }
 
+function BranchPointTargetMenu({
+  branchTargets,
+  color,
+  onClose,
+  onJumpToBranch,
+  position,
+}: {
+  branchTargets: BranchTargetPreview[];
+  color?: BranchColor;
+  onClose: () => void;
+  onJumpToBranch: (targetNodeId: string) => void;
+  position: BranchPointMenuState;
+}) {
+  return createPortal(
+    <span
+      className="highlight-branch-menu branch-point-menu nodrag nopan"
+      onClick={(event) => event.stopPropagation()}
+      onMouseDown={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+      role="menu"
+      style={{
+        left: position.left,
+        top: position.top,
+        ...(color ? branchColorStyle(color, 'highlight') : {}),
+      }}
+    >
+      <span className="highlight-branch-menu__title">Choose branch</span>
+      <span className="highlight-branch-menu__targets">
+        {branchTargets.map((target, index) => (
+          <button key={target.edgeId} onClick={() => onJumpToBranch(target.nodeId)} type="button">
+            {index + 1}. {truncateText(target.title, 42)}
+          </button>
+        ))}
+      </span>
+      <button className="highlight-branch-menu__secondary" onClick={onClose} type="button">
+        Close
+      </button>
+    </span>,
+    document.body,
+  );
+}
+
 function CanvasMessage({
   branchTargetsByHighlightId,
+  highlightAnchorStates,
   highlights,
   isBranching,
   message,
@@ -544,6 +886,7 @@ function CanvasMessage({
   sourceNodeId,
 }: {
   branchTargetsByHighlightId: Record<string, BranchTargetPreview[]>;
+  highlightAnchorStates: Record<string, HighlightAnchorState>;
   highlights: Highlight[];
   isBranching: boolean;
   message: Message;
@@ -557,6 +900,10 @@ function CanvasMessage({
   const contentRef = useRef<HTMLDivElement>(null);
   const isAssistant = message.role === 'ASSISTANT';
   const Icon = isAssistant ? Bot : UserRound;
+  const branchBackedHighlights = useMemo(
+    () => highlights.filter((highlight) => (branchTargetsByHighlightId[highlight.id]?.length ?? 0) > 0),
+    [branchTargetsByHighlightId, highlights],
+  );
 
   const captureSelection = useCallback(() => {
     if (isAssistant && contentRef.current) {
@@ -583,7 +930,8 @@ function CanvasMessage({
             branchTargetsByHighlightId={branchTargetsByHighlightId}
             content={message.content}
             draftRange={selectionDraft}
-            highlights={isAssistant ? highlights : []}
+            highlightAnchorStates={highlightAnchorStates}
+            highlights={isAssistant ? branchBackedHighlights : []}
             isBranching={isBranching}
             onBranchFromHighlight={onBranchFromHighlight}
             onBranchTargetSelected={onBranchTargetSelected}
@@ -620,6 +968,7 @@ function HighlightedContent({
   branchTargetsByHighlightId,
   content,
   draftRange,
+  highlightAnchorStates,
   highlights,
   isBranching,
   onBranchFromHighlight,
@@ -630,6 +979,7 @@ function HighlightedContent({
   branchTargetsByHighlightId: Record<string, BranchTargetPreview[]>;
   content: string;
   draftRange?: InlineSelectionDraft | null;
+  highlightAnchorStates: Record<string, HighlightAnchorState>;
   highlights: Highlight[];
   isBranching: boolean;
   onBranchFromHighlight: (highlight: Highlight) => void;
@@ -637,7 +987,7 @@ function HighlightedContent({
   sourceNodeId: string;
   withHandles: boolean;
 }) {
-  const [openHighlightMenuId, setOpenHighlightMenuId] = useState<string | null>(null);
+  const [openHighlightMenu, setOpenHighlightMenu] = useState<HighlightMenuState | null>(null);
   const ranges = normalizeHighlights(content, highlights, draftRange);
   if (ranges.length === 0) {
     return <>{content}</>;
@@ -653,7 +1003,8 @@ function HighlightedContent({
 
     const branchTargets = branchTargetsByHighlightId[range.id] ?? [];
     const canOpenBranchMenu = !range.isDraft;
-    const isMenuOpen = openHighlightMenuId === range.id;
+    const isMenuOpen = openHighlightMenu?.id === range.id;
+    const shouldRenderInlineHandle = withHandles && !range.isDraft && highlightAnchorStates[range.id]?.visibility !== 'above' && highlightAnchorStates[range.id]?.visibility !== 'below';
 
     parts.push(
       <span
@@ -675,7 +1026,10 @@ function HighlightedContent({
             canOpenBranchMenu
               ? (event) => {
                   event.stopPropagation();
-                  setOpenHighlightMenuId((currentId) => (currentId === range.id ? null : range.id));
+                  const position = menuPositionForRect(event.currentTarget.getBoundingClientRect());
+                  setOpenHighlightMenu((currentMenu) =>
+                    currentMenu?.id === range.id ? null : { id: range.id, ...position },
+                  );
                 }
               : undefined
           }
@@ -685,22 +1039,26 @@ function HighlightedContent({
                   if (event.key === 'Enter' || event.key === ' ') {
                     event.preventDefault();
                     event.stopPropagation();
-                    setOpenHighlightMenuId((currentId) => (currentId === range.id ? null : range.id));
+                    const position = menuPositionForRect(event.currentTarget.getBoundingClientRect());
+                    setOpenHighlightMenu((currentMenu) =>
+                      currentMenu?.id === range.id ? null : { id: range.id, ...position },
+                    );
                   }
                   if (event.key === 'Escape') {
                     event.stopPropagation();
-                    setOpenHighlightMenuId(null);
+                    setOpenHighlightMenu(null);
                   }
                 }
               : undefined
           }
           onMouseUp={canOpenBranchMenu ? (event) => event.stopPropagation() : undefined}
           role={canOpenBranchMenu ? 'button' : undefined}
+          data-highlight-id={canOpenBranchMenu ? range.id : undefined}
           tabIndex={canOpenBranchMenu ? 0 : undefined}
           title={canOpenBranchMenu ? 'Open branch actions' : undefined}
         >
           {content.slice(range.startOffset, range.endOffset)}
-          {withHandles && !range.isDraft ? (
+          {shouldRenderInlineHandle ? (
             <Handle
               className="node-handle node-handle--inline-highlight"
               id={branchHighlightHandleId(range.id)}
@@ -713,16 +1071,18 @@ function HighlightedContent({
         {isMenuOpen ? (
           <BranchHighlightMenu
             branchTargets={branchTargets}
+            color={range.color}
             isBranching={isBranching}
             onBranchFromHighlight={() => {
-              setOpenHighlightMenuId(null);
+              setOpenHighlightMenu(null);
               onBranchFromHighlight(range);
             }}
-            onClose={() => setOpenHighlightMenuId(null)}
+            onClose={() => setOpenHighlightMenu(null)}
             onJumpToBranch={(targetNodeId) => {
-              setOpenHighlightMenuId(null);
+              setOpenHighlightMenu(null);
               onBranchTargetSelected?.(targetNodeId, sourceNodeId);
             }}
+            position={openHighlightMenu}
           />
         ) : null}
       </span>,
@@ -739,18 +1099,26 @@ function HighlightedContent({
 
 function BranchHighlightMenu({
   branchTargets,
+  color,
   isBranching,
   onBranchFromHighlight,
   onClose,
   onJumpToBranch,
+  position,
 }: {
   branchTargets: BranchTargetPreview[];
+  color?: BranchColor;
   isBranching: boolean;
   onBranchFromHighlight: () => void;
   onClose: () => void;
   onJumpToBranch: (targetNodeId: string) => void;
+  position: HighlightMenuState | null;
 }) {
-  return (
+  if (!position) {
+    return null;
+  }
+
+  return createPortal(
     <span
       className="highlight-branch-menu nodrag nopan"
       onClick={(event) => event.stopPropagation()}
@@ -759,6 +1127,11 @@ function BranchHighlightMenu({
         event.stopPropagation();
       }}
       role="menu"
+      style={{
+        left: position.left,
+        top: position.top,
+        ...(color ? branchColorStyle(color, 'highlight') : {}),
+      }}
     >
       <span className="highlight-branch-menu__title">Branch from highlight</span>
       {branchTargets.length > 0 ? (
@@ -779,7 +1152,8 @@ function BranchHighlightMenu({
       <button className="highlight-branch-menu__secondary" onClick={onClose} type="button">
         Close
       </button>
-    </span>
+    </span>,
+    document.body,
   );
 }
 
@@ -854,6 +1228,74 @@ function branchColorStyle(color: BranchColor, scope: 'highlight' | 'node'): CSSP
     '--highlight-soft-bg': color.softBackground,
     '--highlight-text': color.text,
   } as CSSProperties;
+}
+
+function areHighlightAnchorStatesEqual(
+  left: Record<string, HighlightAnchorState>,
+  right: Record<string, HighlightAnchorState>,
+) {
+  const leftKeys = Object.keys(left);
+  const rightKeys = Object.keys(right);
+  if (leftKeys.length !== rightKeys.length) {
+    return false;
+  }
+
+  return leftKeys.every((key) => {
+    const leftState = left[key];
+    const rightState = right[key];
+    return (
+      Boolean(rightState) &&
+      leftState.visibility === rightState.visibility &&
+      Math.round(leftState.y ?? 0) === Math.round(rightState.y ?? 0)
+    );
+  });
+}
+
+function menuPositionForRect(rect: DOMRect) {
+  const menuWidth = 244;
+  const menuHeight = 190;
+  const viewportPadding = 12;
+  const rightSideLeft = rect.right + 8;
+  const leftSideLeft = rect.left - menuWidth - 8;
+  const left =
+    rightSideLeft + menuWidth <= window.innerWidth - viewportPadding
+      ? rightSideLeft
+      : Math.max(viewportPadding, leftSideLeft);
+  const top = Math.min(
+    Math.max(viewportPadding, rect.bottom + 6),
+    Math.max(viewportPadding, window.innerHeight - menuHeight - viewportPadding),
+  );
+
+  return { left, top };
+}
+
+function getEditableSummary(summary?: string | null, branchContext?: string) {
+  if (!summary) {
+    return null;
+  }
+
+  const compactSummary = summary.trim();
+  if (!compactSummary) {
+    return null;
+  }
+
+  if (!branchContext || !compactSummary.toLowerCase().startsWith('selected context:')) {
+    return compactSummary;
+  }
+
+  const generatedContext = compactSummary.replace(/^selected context:\s*/i, '').trim();
+  const compactBranchContext = branchContext.trim();
+  const branchContextPreview = truncateText(compactBranchContext, 96);
+
+  if (
+    generatedContext === compactBranchContext ||
+    generatedContext === branchContextPreview ||
+    compactBranchContext.startsWith(generatedContext.replace(/\.\.\.$/, ''))
+  ) {
+    return null;
+  }
+
+  return compactSummary;
 }
 
 function buildChildLayout(parentLayout?: NodeLayout | null): NodeLayout {

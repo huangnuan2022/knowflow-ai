@@ -111,6 +111,107 @@ button {
   padding: 10px 20px;
 }
 
+.confirm-layer {
+  align-items: center;
+  background: rgb(15 23 42 / 0.34);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 24px;
+  position: fixed;
+  z-index: 5000;
+}
+
+.confirm-dialog {
+  align-items: start;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 28px 70px rgb(15 23 42 / 0.24);
+  color: #111827;
+  display: grid;
+  gap: 14px;
+  grid-template-columns: auto minmax(0, 1fr);
+  max-width: 440px;
+  padding: 20px;
+  width: min(440px, 100%);
+}
+
+.confirm-dialog__icon {
+  align-items: center;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 999px;
+  color: #dc2626;
+  display: inline-flex;
+  height: 38px;
+  justify-content: center;
+  width: 38px;
+}
+
+.confirm-dialog__copy {
+  display: grid;
+  gap: 5px;
+}
+
+.confirm-dialog__copy h2 {
+  font-size: 18px;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.confirm-dialog__copy p {
+  color: #475569;
+  font-size: 14px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+.confirm-dialog__actions {
+  display: flex;
+  gap: 10px;
+  grid-column: 2;
+  justify-content: end;
+}
+
+.confirm-dialog__button {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #334155;
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 650;
+  gap: 7px;
+  min-height: 36px;
+  padding: 0 13px;
+}
+
+.confirm-dialog__button:hover,
+.confirm-dialog__button:focus {
+  border-color: #94a3b8;
+  box-shadow: 0 0 0 3px rgb(148 163 184 / 0.16);
+  outline: none;
+}
+
+.confirm-dialog__button--danger {
+  background: #dc2626;
+  border-color: #dc2626;
+  color: #ffffff;
+}
+
+.confirm-dialog__button--danger:hover,
+.confirm-dialog__button--danger:focus {
+  border-color: #b91c1c;
+  box-shadow: 0 0 0 3px rgb(220 38 38 / 0.16);
+}
+
+.confirm-dialog__button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
 .workspace {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 320px;
@@ -144,6 +245,7 @@ button {
   height: 100%;
   min-height: 180px;
   padding: 16px;
+  position: relative;
   width: 100%;
 }
 
@@ -178,6 +280,10 @@ button {
   flex-direction: column;
   gap: 12px;
   min-height: 0;
+}
+
+.conversation-node:not(.is-expanded) .conversation-node__highlights {
+  flex: 1 1 auto;
 }
 
 .node-resizer-line {
@@ -314,6 +420,11 @@ button {
   width: 100%;
 }
 
+.conversation-node.is-expanded .conversation-node__title-input {
+  font-size: 18px;
+  line-height: 1.25;
+}
+
 .conversation-node__title-input:hover,
 .conversation-node__summary-input:hover {
   border-color: #cbd5e1;
@@ -348,6 +459,13 @@ button {
   width: 100%;
 }
 
+.conversation-node.is-expanded .conversation-node__summary-input {
+  font-size: 15px;
+  line-height: 1.5;
+  min-height: 52px;
+  padding: 10px 8px;
+}
+
 .conversation-node__summary-preview {
   border-top: 1px solid #e2e8f0;
   color: #475569;
@@ -357,6 +475,23 @@ button {
   overflow-wrap: anywhere;
   padding-top: 12px;
   white-space: pre-wrap;
+}
+
+.conversation-node__branch-context-preview {
+  border-top: 1px solid #e2e8f0;
+  color: #475569;
+  flex: 0 0 auto;
+  font-size: 13px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  padding-top: 12px;
+}
+
+.conversation-node__branch-context-preview span {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
 .conversation-node__highlights > span {
@@ -386,22 +521,60 @@ button {
   border-radius: 8px;
   color: var(--node-accent-text, #312e81);
   display: grid;
-  gap: 4px;
+  gap: 8px;
   padding: 9px 10px;
 }
 
-.conversation-node__context span {
+.conversation-node__context-toggle {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: inherit;
+  cursor: pointer;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  padding: 0;
+  text-align: left;
+}
+
+.conversation-node__context-toggle:focus {
+  outline: none;
+}
+
+.conversation-node__context-toggle:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--node-accent-border, #c7d2fe) 35%, transparent);
+  border-radius: 6px;
+}
+
+.conversation-node__context-toggle span {
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
+}
+
+.conversation-node__context-toggle strong {
+  color: var(--node-accent-text, #312e81);
+  font-size: 12px;
+  font-weight: 600;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .conversation-node__context p {
   color: var(--node-accent-text, #312e81);
   font-size: 12px;
   line-height: 1.4;
-  max-height: 48px;
-  overflow: hidden;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.conversation-node.is-expanded .conversation-node__context-toggle span,
+.conversation-node.is-expanded .conversation-node__context-toggle strong,
+.conversation-node.is-expanded .conversation-node__context p {
+  font-size: 14px;
 }
 
 .conversation-node__thread {
@@ -453,6 +626,11 @@ button {
   width: 26px;
 }
 
+.conversation-node.is-expanded .canvas-message__avatar {
+  height: 30px;
+  width: 30px;
+}
+
 .canvas-message__body {
   color: #1f2937;
   font-size: 13px;
@@ -462,6 +640,11 @@ button {
   white-space: pre-wrap;
 }
 
+.conversation-node.is-expanded .canvas-message__body {
+  font-size: 16px;
+  line-height: 1.62;
+}
+
 .canvas-message--user .canvas-message__body {
   background: #eff6ff;
   border: 1px solid #bfdbfe;
@@ -469,6 +652,10 @@ button {
   color: #1e3a8a;
   max-width: 78%;
   padding: 8px 10px;
+}
+
+.conversation-node.is-expanded .canvas-message--user .canvas-message__body {
+  padding: 10px 12px;
 }
 
 .canvas-message--assistant .canvas-message__body {
@@ -526,14 +713,13 @@ button {
   color: #111827;
   display: grid;
   gap: 6px;
-  left: 100%;
-  min-width: 210px;
+  max-width: calc(100vw - 24px);
+  min-width: 220px;
   padding: 8px;
-  position: absolute;
-  top: 100%;
-  transform: translate(6px, 4px);
+  position: fixed;
   white-space: normal;
-  z-index: 40;
+  width: 244px;
+  z-index: 6000;
 }
 
 .highlight-branch-menu__title,
@@ -628,6 +814,11 @@ button {
   resize: vertical;
 }
 
+.conversation-node.is-expanded .conversation-node__composer textarea {
+  font-size: 15px;
+  line-height: 1.5;
+}
+
 .conversation-node__composer textarea:focus {
   border-color: #2563eb;
   box-shadow: 0 0 0 3px rgb(37 99 235 / 0.14);
@@ -639,15 +830,48 @@ button {
 }
 
 .conversation-node__highlights {
+  align-content: start;
   display: grid;
   gap: 7px;
+  grid-auto-rows: max-content;
   min-height: 0;
-  overflow: auto;
+  overflow: visible;
   padding: 1px 3px 3px 1px;
+}
+
+.conversation-node__highlights.is-scrollable {
+  -webkit-overflow-scrolling: touch;
+  overflow-y: scroll;
+  overscroll-behavior: contain;
+  padding-right: 8px;
+  scrollbar-color: rgb(100 116 139 / 0.72) rgb(226 232 240 / 0.85);
+  scrollbar-gutter: stable;
+  scrollbar-width: thin;
+  touch-action: pan-y;
+}
+
+.conversation-node__highlights.is-scrollable::-webkit-scrollbar {
+  width: 10px;
+}
+
+.conversation-node__highlights.is-scrollable::-webkit-scrollbar-track {
+  background: rgb(226 232 240 / 0.85);
+  border-radius: 999px;
+}
+
+.conversation-node__highlights.is-scrollable::-webkit-scrollbar-thumb {
+  background: rgb(100 116 139 / 0.72);
+  border: 2px solid rgb(226 232 240 / 0.85);
+  border-radius: 999px;
+}
+
+.conversation-node__highlights.is-scrollable::-webkit-scrollbar-thumb:hover {
+  background: rgb(71 85 105 / 0.82);
 }
 
 .conversation-node__highlight {
   position: relative;
+  width: calc(100% - 28px);
 }
 
 .conversation-node__highlight-button {
@@ -793,6 +1017,22 @@ button {
   width: 1px !important;
 }
 
+.react-flow__edge.is-dimmed .react-flow__edge-path {
+  opacity: 0.12;
+}
+
+.react-flow__edge.is-focused .react-flow__edge-path {
+  opacity: 0.86;
+}
+
+.react-flow__edge.branch-edge.is-focused .react-flow__edge-path {
+  stroke-width: 2.2;
+}
+
+.react-flow__edge.manual-edge.is-focused .react-flow__edge-path {
+  opacity: 0.46;
+}
+
 .editable-edge-label {
   --edge-label-accent: #2563eb;
   --edge-label-bg: #ffffff;
@@ -801,6 +1041,10 @@ button {
   pointer-events: all;
   position: absolute;
   z-index: 15;
+}
+
+.editable-edge-label.is-related-to-selected {
+  z-index: 1600;
 }
 
 .editable-edge-label__actions {
