@@ -63,6 +63,10 @@ export type ConversationEdgeActions = {
   onEdgeLabelChanged?: (edgeId: string, label: string) => Promise<void> | void;
 };
 
+export const branchTargetHandleId = 'branch-target';
+export const manualSourceHandleId = 'manual-source';
+export const manualTargetHandleId = 'manual-target';
+
 export function branchHighlightHandleId(highlightId: string) {
   return `branch-highlight-${highlightId}`;
 }
@@ -126,9 +130,11 @@ export function toReactFlowNodes(
 export function toReactFlowEdges(
   edges: DomainEdge[],
   actions: ConversationEdgeActions = {},
+  selectedNodeId?: string | null,
 ): ConversationFlowEdge[] {
   return edges.map((edge) => {
     const isBranchEdge = edge.type === 'BRANCH';
+    const shouldRenderAboveSourceNode = isBranchEdge && edge.sourceNodeId === selectedNodeId;
 
     return {
       className: isBranchEdge ? 'branch-edge' : undefined,
@@ -146,11 +152,16 @@ export function toReactFlowEdges(
           }
         : undefined,
       source: edge.sourceNodeId,
-      sourceHandle: isBranchEdge && edge.sourceHighlightId ? branchHighlightHandleId(edge.sourceHighlightId) : undefined,
+      sourceHandle: isBranchEdge
+        ? edge.sourceHighlightId
+          ? branchHighlightHandleId(edge.sourceHighlightId)
+          : undefined
+        : manualSourceHandleId,
       style: isBranchEdge ? { stroke: '#2563eb', strokeOpacity: 0.5, strokeWidth: 1.65 } : undefined,
       target: edge.targetNodeId,
+      targetHandle: isBranchEdge ? branchTargetHandleId : manualTargetHandleId,
       type: 'editable',
-      zIndex: isBranchEdge ? 20 : 10,
+      zIndex: shouldRenderAboveSourceNode ? 1200 : 10,
     };
   });
 }

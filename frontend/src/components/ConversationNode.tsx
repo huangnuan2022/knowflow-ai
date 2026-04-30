@@ -3,7 +3,13 @@ import { Bot, GitBranch, Loader2, MessageSquareText, Send, Trash2, UserRound } f
 import { FormEvent, KeyboardEvent, MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createBranchFromSelection, createRun, createUserMessage, executeRun } from '../lib/api';
 import { Highlight, Message, NodeLayout } from '../lib/domain';
-import { branchHighlightHandleId, ConversationNodeData } from '../lib/reactFlowAdapter';
+import {
+  branchHighlightHandleId,
+  branchTargetHandleId,
+  ConversationNodeData,
+  manualSourceHandleId,
+  manualTargetHandleId,
+} from '../lib/reactFlowAdapter';
 import { readTextSelectionWithin, TextSelectionRange } from '../lib/textSelection';
 
 type InlineSelectionDraft = TextSelectionRange & {
@@ -252,9 +258,19 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
         onResizeEnd={onResizeEnd}
       />
       <Handle
-        className={`node-handle node-handle--manual ${isExpanded ? 'node-handle--manual-hidden' : ''}`}
-        isConnectable={!isExpanded}
+        className="node-handle node-handle--branch-target"
+        id={branchTargetHandleId}
+        isConnectable={false}
         position={Position.Top}
+        type="target"
+      />
+      <Handle
+        className={`node-handle node-handle--manual node-handle--manual-target ${
+          isExpanded ? 'node-handle--manual-hidden' : ''
+        }`}
+        id={manualTargetHandleId}
+        isConnectable={!isExpanded}
+        position={Position.Left}
         type="target"
       />
       <div className="conversation-node__header">
@@ -362,9 +378,12 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
       )}
 
       <Handle
-        className={`node-handle node-handle--manual ${isExpanded ? 'node-handle--manual-hidden' : ''}`}
+        className={`node-handle node-handle--manual node-handle--manual-source ${
+          isExpanded ? 'node-handle--manual-hidden' : ''
+        }`}
+        id={manualSourceHandleId}
         isConnectable={!isExpanded}
-        position={Position.Bottom}
+        position={Position.Right}
         type="source"
       />
     </article>

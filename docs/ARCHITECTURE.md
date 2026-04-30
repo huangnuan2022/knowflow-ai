@@ -58,12 +58,12 @@ Canvas-first interaction rule:
 - Persisted highlights should render in place when possible, and branch edges should use source handles attached to those highlights. A collapsed node may fall back to stable highlight chips so existing edges still have visible handles.
 - Persisted branch highlights and collapsed branch-point chips should jump to their connected child nodes. This makes the graph navigable from the exact learning fork, not only from the node card.
 - After creating a branch, keep the source node selected and expanded, then fit the source and child node into view. Selecting the child immediately hides the source highlight and makes the branch feel disconnected.
-- Manual edges are allowed for non-branch peer relationships between collapsed node cards and may have editable labels. They should remain visually and semantically separate from branch edges, and are undirected by default in v0. Branch points should not be manual connection handles. Branch edge labels represent selected source text and should not be freely edited in v0.
+- Manual edges are allowed for non-branch peer relationships between collapsed node-level side handles and may have editable labels. They should remain visually and semantically separate from branch edges, and are undirected by default in v0. Branch points should not be manual connection handles. Branch edge labels represent selected source text and should not be freely edited in v0.
 - Node deletion must be a domain API operation. React Flow delete/remove events should call the backend delete boundary and refresh server state; removing nodes only from local canvas state causes deleted nodes to reappear on the next refresh.
 - Dragging a node should not expand it; expansion is a click/focus action. This keeps basic canvas movement predictable.
 - Resizing is allowed on selected/expanded nodes and persists to node layout metadata through the backend node update boundary.
 - Node creation should use the current viewport center converted to graph coordinates. Fixed default graph coordinates make nodes appear in surprising off-screen or bottom-of-view positions after the user pans or zooms.
-- Node cards should render above graph edges, especially when expanded, so relationship lines do not cut through readable conversation content. Use the persisted highlight and branch-point jump action as the provenance cue rather than drawing branch edges over node text.
+- Node cards should generally render above graph edges, especially when expanded, so unrelated relationship lines do not cut through readable conversation content. The exception is an outgoing branch edge from the currently expanded source node, which may render above that source node so the line visibly originates from the selected highlight. Use the persisted highlight and branch-point jump action as the main provenance cue rather than letting unrelated edges dominate node text.
 
 ## Rich Text And Selection Direction
 

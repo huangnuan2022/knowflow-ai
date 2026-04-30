@@ -82,7 +82,7 @@ Started in Phase 3:
 - New nodes should be created near the current visible canvas center, not at a fixed global graph coordinate.
 - Selected/expanded nodes can be resized from their borders, and resized dimensions are stored in node layout metadata.
 - Node title and summary editing from the frontend, saved through the backend node update boundary.
-- Manual edges can be created between collapsed node cards and labeled as lightweight peer relationships. Manual edges are undirected by default. Branch points are reserved for branch navigation, and branch edge labels remain tied to selected source text.
+- Manual edges can be created only between collapsed node-level side handles and labeled as lightweight peer relationships. Manual edges are undirected by default. Branch points are reserved for branch navigation, not manual connection starts, and branch edge labels remain tied to selected source text.
 - The right sidebar acts as a secondary read-only inspector instead of the primary ask/branch surface.
 
 Not implemented in Phase 3:

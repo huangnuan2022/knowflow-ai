@@ -573,16 +573,48 @@ button {
   width: 10px;
 }
 
-.node-handle--manual-hidden {
+.node-handle--branch-target {
   opacity: 0;
   pointer-events: none;
 }
 
+.node-handle--manual {
+  background: #64748b;
+  border: 2px solid #ffffff;
+  height: 12px;
+  opacity: 0.55;
+  width: 12px;
+}
+
+.node-handle--manual-source {
+  right: -8px;
+}
+
+.node-handle--manual-target {
+  left: -8px;
+}
+
+.conversation-node:hover .node-handle--manual,
+.node-handle--manual:hover {
+  opacity: 1;
+}
+
+.node-handle--manual-hidden {
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 .node-handle--highlight {
+  background: transparent !important;
+  border: 0 !important;
   cursor: default;
-  right: -22px;
+  height: 1px !important;
+  opacity: 0.01;
+  pointer-events: none !important;
+  right: -3px;
   top: 50%;
   transform: translate(50%, -50%);
+  width: 1px !important;
 }
 
 .node-handle--inline-highlight {
@@ -590,7 +622,7 @@ button {
   border: 0 !important;
   height: 1px !important;
   opacity: 0.01;
-  pointer-events: none;
+  pointer-events: none !important;
   right: -3px;
   top: 50%;
   transform: translate(50%, -50%);

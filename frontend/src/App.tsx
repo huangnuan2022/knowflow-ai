@@ -31,6 +31,8 @@ import { DomainEdge, GraphBundle, NodeLayout } from './lib/domain';
 import {
   ConversationFlowEdge,
   ConversationFlowNode,
+  manualSourceHandleId,
+  manualTargetHandleId,
   toReactFlowEdges,
   toReactFlowNodes,
 } from './lib/reactFlowAdapter';
@@ -332,8 +334,8 @@ function KnowFlowCanvas() {
   ]);
 
   useEffect(() => {
-    setEdges(bundle ? toReactFlowEdges(bundle.edges, { onEdgeLabelChanged }) : []);
-  }, [bundle, onEdgeLabelChanged, setEdges]);
+    setEdges(bundle ? toReactFlowEdges(bundle.edges, { onEdgeLabelChanged }, selectedNodeId) : []);
+  }, [bundle, onEdgeLabelChanged, selectedNodeId, setEdges]);
 
   useEffect(() => {
     if (!pendingBranchView) {
@@ -367,8 +369,12 @@ function KnowFlowCanvas() {
         setError('Collapse expanded nodes before creating a manual relationship edge.');
         return;
       }
-      if (connection.sourceHandle?.startsWith('branch-highlight-')) {
-        setError('Branch points are reserved for branch navigation, not manual relationship edges.');
+      if (connection.source === connection.target) {
+        setError('Manual relationship edges need two different nodes.');
+        return;
+      }
+      if (connection.sourceHandle !== manualSourceHandleId || connection.targetHandle !== manualTargetHandleId) {
+        setError('Create manual relationship edges from a collapsed node side handle to another collapsed node.');
         return;
       }
 
