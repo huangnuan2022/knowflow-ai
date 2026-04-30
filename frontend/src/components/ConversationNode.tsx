@@ -270,7 +270,6 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
             title="Node title"
             value={titleDraft}
           />
-          <p>{nodeData.type.replace('_', ' ').toLowerCase()}</p>
         </div>
         <button
           aria-label={`Delete ${nodeData.title}`}
@@ -312,11 +311,14 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
                 <CanvasMessage
                   highlights={nodeData.highlightsByMessageId[message.id] ?? []}
                   isBranching={isBranching}
+                  branchTargetsByHighlightId={nodeData.branchTargetsByHighlightId}
                   key={message.id}
                   message={message}
                   onAssistantSelection={onAssistantSelection}
                   onBranch={onBranch}
+                  onBranchTargetSelected={nodeData.onBranchTargetSelected}
                   selectionDraft={selectionDraft?.messageId === message.id ? selectionDraft : null}
+                  sourceNodeId={id}
                 />
               ))
             ) : (
@@ -347,7 +349,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
           </form>
         </>
       ) : (
-        <CollapsedNodeBody nodeData={nodeData} />
+        <CollapsedNodeBody nodeData={nodeData} sourceNodeId={id} />
       )}
 
       <Handle className="node-handle" position={Position.Bottom} type="source" />
@@ -355,7 +357,13 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
   );
 }
 
-function CollapsedNodeBody({ nodeData }: { nodeData: ConversationNodeData }) {
+function CollapsedNodeBody({
+  nodeData,
+  sourceNodeId,
+}: {
+  nodeData: ConversationNodeData;
+  sourceNodeId: string;
+}) {
   const hasBranchHighlights = nodeData.branchHighlights.length > 0;
 
   return (
@@ -365,7 +373,16 @@ function CollapsedNodeBody({ nodeData }: { nodeData: ConversationNodeData }) {
           <span>Branch points</span>
           {nodeData.branchHighlights.map((highlight) => (
             <div className="conversation-node__highlight" key={highlight.id} title={highlight.text}>
-              <mark>{truncateText(highlight.text, 80)}</mark>
+              <button
+                className="conversation-node__highlight-button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  nodeData.onBranchTargetSelected?.(highlight.targetNodeId, sourceNodeId);
+                }}
+                type="button"
+              >
+                {truncateText(highlight.text, 80)}
+              </button>
               <Handle
                 className="node-handle node-handle--highlight"
                 id={branchHighlightHandleId(highlight.id)}
@@ -383,19 +400,25 @@ function CollapsedNodeBody({ nodeData }: { nodeData: ConversationNodeData }) {
 }
 
 function CanvasMessage({
+  branchTargetsByHighlightId,
   highlights,
   isBranching,
   message,
   onAssistantSelection,
   onBranch,
+  onBranchTargetSelected,
   selectionDraft,
+  sourceNodeId,
 }: {
+  branchTargetsByHighlightId: Record<string, string>;
   highlights: Highlight[];
   isBranching: boolean;
   message: Message;
   onAssistantSelection: (message: Message, element: HTMLElement) => void;
   onBranch: () => void;
+  onBranchTargetSelected?: (targetNodeId: string, sourceNodeId: string) => void;
   selectionDraft: InlineSelectionDraft | null;
+  sourceNodeId: string;
 }) {
   const contentRef = useRef<HTMLDivElement>(null);
   const isAssistant = message.role === 'ASSISTANT';
@@ -423,9 +446,12 @@ function CanvasMessage({
           tabIndex={isAssistant ? 0 : undefined}
         >
           <HighlightedContent
+            branchTargetsByHighlightId={branchTargetsByHighlightId}
             content={message.content}
             draftRange={selectionDraft}
             highlights={isAssistant ? highlights : []}
+            onBranchTargetSelected={onBranchTargetSelected}
+            sourceNodeId={sourceNodeId}
             withHandles={isAssistant}
           />
           {selectionDraft ? (
@@ -455,14 +481,20 @@ function CanvasMessage({
 }
 
 function HighlightedContent({
+  branchTargetsByHighlightId,
   content,
   draftRange,
   highlights,
+  onBranchTargetSelected,
+  sourceNodeId,
   withHandles,
 }: {
+  branchTargetsByHighlightId: Record<string, string>;
   content: string;
   draftRange?: InlineSelectionDraft | null;
   highlights: Highlight[];
+  onBranchTargetSelected?: (targetNodeId: string, sourceNodeId: string) => void;
+  sourceNodeId: string;
   withHandles: boolean;
 }) {
   const ranges = normalizeHighlights(content, highlights, draftRange);
@@ -478,10 +510,41 @@ function HighlightedContent({
       parts.push(content.slice(cursor, range.startOffset));
     }
 
+    const targetNodeId = branchTargetsByHighlightId[range.id];
+    const canJumpToBranch = !range.isDraft && Boolean(targetNodeId);
+
     parts.push(
       <mark
-        className={`canvas-message-highlight ${range.isDraft ? 'canvas-message-highlight--draft' : ''}`}
+        className={[
+          'canvas-message-highlight',
+          range.isDraft ? 'canvas-message-highlight--draft' : '',
+          canJumpToBranch ? 'canvas-message-highlight--jumpable' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         key={range.id}
+        onClick={
+          canJumpToBranch
+            ? (event) => {
+                event.stopPropagation();
+                onBranchTargetSelected?.(targetNodeId, sourceNodeId);
+              }
+            : undefined
+        }
+        onKeyDown={
+          canJumpToBranch
+            ? (event) => {
+                if (event.key === 'Enter' || event.key === ' ') {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onBranchTargetSelected?.(targetNodeId, sourceNodeId);
+                }
+              }
+            : undefined
+        }
+        role={canJumpToBranch ? 'button' : undefined}
+        tabIndex={canJumpToBranch ? 0 : undefined}
+        title={canJumpToBranch ? 'Jump to branch node' : undefined}
       >
         {content.slice(range.startOffset, range.endOffset)}
         {withHandles && !range.isDraft ? (

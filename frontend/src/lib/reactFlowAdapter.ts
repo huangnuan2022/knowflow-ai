@@ -1,5 +1,5 @@
 import { Edge, MarkerType, Node } from '@xyflow/react';
-import { DomainEdge, DomainNode, GraphBundle, Highlight, Message, MessageRole, NodeLayout } from './domain';
+import { DomainEdge, DomainNode, EdgeType, GraphBundle, Highlight, Message, MessageRole, NodeLayout } from './domain';
 
 export type NodeMessagePreview = {
   id: string;
@@ -10,6 +10,7 @@ export type NodeMessagePreview = {
 
 export type BranchHighlightPreview = {
   id: string;
+  targetNodeId: string;
   text: string;
 };
 
@@ -20,6 +21,7 @@ export type BranchContextPreview = {
 
 export type ConversationNodeActions = {
   onBranchCreated?: (childNodeId: string, sourceNodeId: string) => Promise<void> | void;
+  onBranchTargetSelected?: (targetNodeId: string, sourceNodeId: string) => void;
   onNodeDetailsChanged?: (nodeId: string, input: { title?: string; summary?: string | null }) => Promise<void> | void;
   onNodeDeleteRequested?: (nodeId: string) => Promise<void> | void;
   onNodeMessagesChanged?: () => Promise<void> | void;
@@ -29,6 +31,7 @@ export type ConversationNodeActions = {
 export type ConversationNodeData = Record<string, unknown> & {
   branchContext?: BranchContextPreview;
   branchHighlights: BranchHighlightPreview[];
+  branchTargetsByHighlightId: Record<string, string>;
   highlightsByMessageId: Record<string, Highlight[]>;
   isExpanded: boolean;
   layout?: NodeLayout | null;
@@ -36,6 +39,7 @@ export type ConversationNodeData = Record<string, unknown> & {
   messageCount: number;
   messagePreviews: NodeMessagePreview[];
   onBranchCreated?: (childNodeId: string, sourceNodeId: string) => Promise<void> | void;
+  onBranchTargetSelected?: (targetNodeId: string, sourceNodeId: string) => void;
   onNodeDetailsChanged?: (nodeId: string, input: { title?: string; summary?: string | null }) => Promise<void> | void;
   onNodeDeleteRequested?: (nodeId: string) => Promise<void> | void;
   onNodeMessagesChanged?: () => Promise<void> | void;
@@ -46,6 +50,18 @@ export type ConversationNodeData = Record<string, unknown> & {
 };
 
 export type ConversationFlowNode = Node<ConversationNodeData>;
+
+export type KnowFlowEdgeData = Record<string, unknown> & {
+  edgeType: EdgeType;
+  label?: string | null;
+  onEdgeLabelChanged?: (edgeId: string, label: string) => Promise<void> | void;
+};
+
+export type ConversationFlowEdge = Edge<KnowFlowEdgeData>;
+
+export type ConversationEdgeActions = {
+  onEdgeLabelChanged?: (edgeId: string, label: string) => Promise<void> | void;
+};
 
 export function branchHighlightHandleId(highlightId: string) {
   return `branch-highlight-${highlightId}`;
@@ -58,6 +74,7 @@ export function toReactFlowNodes(
   selectedNodeId?: string | null,
 ): ConversationFlowNode[] {
   const branchHighlightsByNodeId = groupBranchHighlightsByNodeId(bundle?.edges ?? []);
+  const branchTargetsByHighlightId = groupBranchTargetsByHighlightId(bundle?.edges ?? []);
 
   return nodes.map((node, index) => {
     const isSelected = node.id === selectedNodeId;
@@ -68,6 +85,7 @@ export function toReactFlowNodes(
       data: {
         branchContext: findInboundBranchContext(bundle?.edges, node.id),
         branchHighlights: branchHighlightsByNodeId[node.id] ?? [],
+        branchTargetsByHighlightId,
         highlightsByMessageId: bundle?.highlightsByMessageId ?? {},
         isExpanded: isSelected,
         layout: {
@@ -80,6 +98,7 @@ export function toReactFlowNodes(
         messageCount: bundle?.messagesByNodeId[node.id]?.length ?? 0,
         messagePreviews: previewMessages(bundle?.messagesByNodeId[node.id] ?? []),
         onBranchCreated: actions.onBranchCreated,
+        onBranchTargetSelected: actions.onBranchTargetSelected,
         onNodeDetailsChanged: actions.onNodeDetailsChanged,
         onNodeDeleteRequested: actions.onNodeDeleteRequested,
         onNodeMessagesChanged: actions.onNodeMessagesChanged,
@@ -103,12 +122,20 @@ export function toReactFlowNodes(
   });
 }
 
-export function toReactFlowEdges(edges: DomainEdge[]): Edge[] {
+export function toReactFlowEdges(
+  edges: DomainEdge[],
+  actions: ConversationEdgeActions = {},
+): ConversationFlowEdge[] {
   return edges.map((edge) => {
     const isBranchEdge = edge.type === 'BRANCH';
 
     return {
       className: isBranchEdge ? 'branch-edge' : undefined,
+      data: {
+        edgeType: edge.type,
+        label: edge.label,
+        onEdgeLabelChanged: actions.onEdgeLabelChanged,
+      },
       id: edge.id,
       label: edge.label ?? undefined,
       markerEnd: {
@@ -119,7 +146,7 @@ export function toReactFlowEdges(edges: DomainEdge[]): Edge[] {
       sourceHandle: isBranchEdge && edge.sourceHighlightId ? branchHighlightHandleId(edge.sourceHighlightId) : undefined,
       style: isBranchEdge ? { stroke: '#2563eb', strokeOpacity: 0.5, strokeWidth: 1.65 } : undefined,
       target: edge.targetNodeId,
-      type: 'smoothstep',
+      type: 'editable',
       zIndex: isBranchEdge ? 2000 : 0,
     };
   });
@@ -135,10 +162,20 @@ function groupBranchHighlightsByNodeId(edges: DomainEdge[]) {
       ...(groups[edge.sourceNodeId] ?? []),
       {
         id: edge.sourceHighlightId,
+        targetNodeId: edge.targetNodeId,
         text: edge.label,
       },
     ];
     return groups;
+  }, {});
+}
+
+function groupBranchTargetsByHighlightId(edges: DomainEdge[]) {
+  return edges.reduce<Record<string, string>>((targets, edge) => {
+    if (edge.type === 'BRANCH' && edge.sourceHighlightId) {
+      targets[edge.sourceHighlightId] = edge.targetNodeId;
+    }
+    return targets;
   }, {});
 }
 

@@ -2,7 +2,6 @@ import {
   Background,
   Connection,
   Controls,
-  Edge,
   MiniMap,
   NodeChange,
   NodePositionChange,
@@ -18,19 +17,30 @@ import { Plus, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ConversationNode } from './components/ConversationNode';
 import { ConversationPanel } from './components/ConversationPanel';
+import { EditableEdge } from './components/EditableEdge';
 import {
   createManualEdge,
   createNode,
   deleteNode,
   loadGraphBundle,
+  updateEdgeLabel,
   updateNodeDetails,
   updateNodeLayout,
 } from './lib/api';
 import { DomainEdge, GraphBundle, NodeLayout } from './lib/domain';
-import { ConversationFlowNode, toReactFlowEdges, toReactFlowNodes } from './lib/reactFlowAdapter';
+import {
+  ConversationFlowEdge,
+  ConversationFlowNode,
+  toReactFlowEdges,
+  toReactFlowNodes,
+} from './lib/reactFlowAdapter';
 
 const nodeTypes = {
   conversation: ConversationNode,
+};
+
+const edgeTypes = {
+  editable: EditableEdge,
 };
 
 export function App() {
@@ -44,8 +54,8 @@ export function App() {
 function KnowFlowCanvas() {
   const [bundle, setBundle] = useState<GraphBundle | null>(null);
   const [nodes, setNodes] = useNodesState<ConversationFlowNode>([]);
-  const [edges, setEdges] = useEdgesState<Edge>([]);
-  const { fitView, screenToFlowPosition } = useReactFlow<ConversationFlowNode, Edge>();
+  const [edges, setEdges] = useEdgesState<ConversationFlowEdge>([]);
+  const { fitView, screenToFlowPosition } = useReactFlow<ConversationFlowNode, ConversationFlowEdge>();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -63,7 +73,6 @@ function KnowFlowCanvas() {
     try {
       const nextBundle = await loadGraphBundle();
       setBundle(nextBundle);
-      setEdges(toReactFlowEdges(nextBundle.edges));
       return nextBundle;
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : 'Unable to load graph');
@@ -212,6 +221,32 @@ function KnowFlowCanvas() {
     await refresh();
   }, [refresh]);
 
+  const onBranchTargetSelected = useCallback((targetNodeId: string, sourceNodeId: string) => {
+    setSelectedNodeId(targetNodeId);
+    setPendingBranchView({ childNodeId: targetNodeId, sourceNodeId });
+  }, []);
+
+  const onEdgeLabelChanged = useCallback(async (edgeId: string, label: string) => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      const updatedEdge = await updateEdgeLabel(edgeId, label);
+      setBundle((currentBundle) =>
+        currentBundle
+          ? {
+              ...currentBundle,
+              edges: currentBundle.edges.map((edge) => (edge.id === edgeId ? updatedEdge : edge)),
+            }
+          : currentBundle,
+      );
+    } catch (labelError) {
+      setError(labelError instanceof Error ? labelError.message : 'Unable to save edge label');
+      throw labelError;
+    } finally {
+      setIsSaving(false);
+    }
+  }, []);
+
   const onNodeDetailsChanged = useCallback(async (nodeId: string, input: { title?: string; summary?: string | null }) => {
     setIsSaving(true);
     setError(null);
@@ -275,6 +310,7 @@ function KnowFlowCanvas() {
         bundle,
         {
           onBranchCreated,
+          onBranchTargetSelected,
           onNodeDetailsChanged,
           onNodeDeleteRequested,
           onNodeMessagesChanged,
@@ -286,6 +322,7 @@ function KnowFlowCanvas() {
   }, [
     bundle,
     onBranchCreated,
+    onBranchTargetSelected,
     onNodeDetailsChanged,
     onNodeDeleteRequested,
     onNodeMessagesChanged,
@@ -293,6 +330,10 @@ function KnowFlowCanvas() {
     selectedNodeId,
     setNodes,
   ]);
+
+  useEffect(() => {
+    setEdges(bundle ? toReactFlowEdges(bundle.edges, { onEdgeLabelChanged }) : []);
+  }, [bundle, onEdgeLabelChanged, setEdges]);
 
   useEffect(() => {
     if (!pendingBranchView) {
@@ -331,7 +372,6 @@ function KnowFlowCanvas() {
           sourceNodeId: connection.source,
           targetNodeId: connection.target,
         });
-        setEdges((currentEdges: Edge[]) => [...currentEdges, ...toReactFlowEdges([edge])]);
         setBundle((currentBundle) =>
           currentBundle
             ? {
@@ -384,6 +424,7 @@ function KnowFlowCanvas() {
         <section className="canvas-frame" aria-label="KnowFlow graph canvas" ref={canvasFrameRef}>
           <ReactFlow
             edges={edges}
+            edgeTypes={edgeTypes}
             fitView
             minZoom={0.2}
             nodeTypes={nodeTypes}

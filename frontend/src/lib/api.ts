@@ -78,6 +78,10 @@ export async function createManualEdge(input: { graphId: string; sourceNodeId: s
   });
 }
 
+export async function updateEdgeLabel(edgeId: string, label: string) {
+  return patch<DomainEdge>(`/edges/${edgeId}`, { label });
+}
+
 export async function getMessages(nodeId: string) {
   return get<Message[]>(`/messages?nodeId=${nodeId}`);
 }
