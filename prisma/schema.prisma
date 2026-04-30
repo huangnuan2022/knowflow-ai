@@ -1,0 +1,198 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum NodeType {
+  CONVERSATION
+  GRAPH_LINK
+}
+
+enum EdgeType {
+  MANUAL
+  BRANCH
+  GRAPH_LINK
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum RunStatus {
+  PENDING
+  RUNNING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+model User {
+  id          String    @id @default(cuid())
+  email       String?   @unique
+  displayName String?   @map("display_name")
+  settings    Json?
+  projects    Project[]
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  ownerId     String?  @map("owner_id")
+  owner       User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  title       String
+  description String?
+  graphs      Graph[]
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([ownerId])
+  @@map("projects")
+}
+
+model Graph {
+  id         String   @id @default(cuid())
+  projectId  String   @map("project_id")
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title      String
+  rootNodeId String?  @map("root_node_id")
+  rootNode   Node?    @relation("GraphRootNode", fields: [rootNodeId], references: [id], onDelete: SetNull)
+  settings   Json?
+  nodes      Node[]   @relation("GraphNodes")
+  edges      Edge[]
+  createdAt  DateTime @default(now()) @map("created_at")
+  updatedAt  DateTime @updatedAt @map("updated_at")
+
+  @@index([projectId])
+  @@index([rootNodeId])
+  @@map("graphs")
+}
+
+model Node {
+  id            String    @id @default(cuid())
+  graphId       String    @map("graph_id")
+  graph         Graph     @relation("GraphNodes", fields: [graphId], references: [id], onDelete: Cascade)
+  type          NodeType  @default(CONVERSATION)
+  title         String
+  summary       String?
+  layout        Json?
+  messages      Message[]
+  sourceEdges   Edge[]    @relation("EdgeSource")
+  targetEdges   Edge[]    @relation("EdgeTarget")
+  runs          Run[]
+  rootForGraphs Graph[]   @relation("GraphRootNode")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@index([graphId])
+  @@map("nodes")
+}
+
+model Edge {
+  id                String     @id @default(cuid())
+  graphId           String     @map("graph_id")
+  graph             Graph      @relation(fields: [graphId], references: [id], onDelete: Cascade)
+  sourceNodeId      String     @map("source_node_id")
+  sourceNode        Node       @relation("EdgeSource", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNodeId      String     @map("target_node_id")
+  targetNode        Node       @relation("EdgeTarget", fields: [targetNodeId], references: [id], onDelete: Cascade)
+  type              EdgeType   @default(MANUAL)
+  label             String?
+  sourceHighlightId String?    @map("source_highlight_id")
+  sourceHighlight   Highlight? @relation(fields: [sourceHighlightId], references: [id], onDelete: SetNull)
+  createdAt         DateTime   @default(now()) @map("created_at")
+  updatedAt         DateTime   @updatedAt @map("updated_at")
+
+  @@index([graphId])
+  @@index([sourceNodeId])
+  @@index([targetNodeId])
+  @@index([sourceHighlightId])
+  @@map("edges")
+}
+
+model Message {
+  id         String      @id @default(cuid())
+  nodeId     String      @map("node_id")
+  node       Node        @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  role       MessageRole
+  content    String
+  sequence   Int
+  runId      String?     @map("run_id")
+  run        Run?        @relation(fields: [runId], references: [id], onDelete: SetNull)
+  tokenCount Int?        @map("token_count")
+  version    Int         @default(1)
+  highlights Highlight[]
+  createdAt  DateTime    @default(now()) @map("created_at")
+  updatedAt  DateTime    @updatedAt @map("updated_at")
+
+  @@unique([nodeId, sequence])
+  @@index([nodeId, sequence])
+  @@index([runId])
+  @@map("messages")
+}
+
+model Highlight {
+  id                   String    @id @default(cuid())
+  messageId            String    @map("message_id")
+  message              Message   @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  startOffset          Int       @map("start_offset")
+  endOffset            Int       @map("end_offset")
+  selectedTextSnapshot String    @map("selected_text_snapshot")
+  anchorVersion        Int       @default(1) @map("anchor_version")
+  edges                Edge[]
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  @@index([messageId])
+  @@map("highlights")
+}
+
+model Run {
+  id                   String           @id @default(cuid())
+  nodeId               String           @map("node_id")
+  node                 Node             @relation(fields: [nodeId], references: [id], onDelete: Cascade)
+  status               RunStatus        @default(PENDING)
+  provider             String
+  model                String
+  promptTemplateVersion String          @map("prompt_template_version")
+  contextPolicyVersion String           @map("context_policy_version")
+  errorCode            String?          @map("error_code")
+  errorMessage         String?          @map("error_message")
+  latencyMs            Int?             @map("latency_ms")
+  inputTokens          Int?             @map("input_tokens")
+  outputTokens         Int?             @map("output_tokens")
+  startedAt            DateTime?        @map("started_at")
+  completedAt          DateTime?        @map("completed_at")
+  contextSnapshot      ContextSnapshot?
+  messages             Message[]
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
+
+  @@index([nodeId])
+  @@index([status])
+  @@map("runs")
+}
+
+model ContextSnapshot {
+  id                   String   @id @default(cuid())
+  runId                String   @unique @map("run_id")
+  run                  Run      @relation(fields: [runId], references: [id], onDelete: Cascade)
+  includedMessageIds   Json     @map("included_message_ids")
+  includedHighlightIds Json     @map("included_highlight_ids")
+  selectedTextSnapshot String?  @map("selected_text_snapshot")
+  tokenEstimate        Int?     @map("token_estimate")
+  promptTemplateVersion String  @map("prompt_template_version")
+  contextPolicyVersion String   @map("context_policy_version")
+  createdAt            DateTime @default(now()) @map("created_at")
+
+  @@index([runId])
+  @@map("context_snapshots")
+}
