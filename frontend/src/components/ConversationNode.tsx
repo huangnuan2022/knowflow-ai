@@ -1,12 +1,25 @@
 import { Handle, NodeProps, NodeResizer, Position, ResizeParams, useUpdateNodeInternals } from '@xyflow/react';
 import { Bot, GitBranch, Loader2, MessageSquareText, Send, Trash2, UserRound } from 'lucide-react';
-import { FormEvent, KeyboardEvent, MouseEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  CSSProperties,
+  FormEvent,
+  KeyboardEvent,
+  MouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { createBranchFromSelection, createRun, createUserMessage, executeRun } from '../lib/api';
 import { Highlight, Message, NodeLayout } from '../lib/domain';
 import {
+  BranchColor,
+  BranchTargetPreview,
   branchHighlightHandleId,
   branchTargetHandleId,
   ConversationNodeData,
+  colorForHighlightId,
   manualSourceHandleId,
   manualTargetHandleId,
 } from '../lib/reactFlowAdapter';
@@ -33,6 +46,10 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
   const [isSavingDetails, setIsSavingDetails] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const updateNodeInternals = useUpdateNodeInternals();
+  const nodeAccentStyle = useMemo(
+    () => (nodeData.accentColor ? branchColorStyle(nodeData.accentColor, 'node') : undefined),
+    [nodeData.accentColor],
+  );
   const sortedMessages = useMemo(
     () => [...nodeData.messages].sort((left, right) => left.sequence - right.sequence),
     [nodeData.messages],
@@ -208,6 +225,43 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
     }
   }, [id, isBranching, nodeData, selectionDraft]);
 
+  const onBranchFromHighlight = useCallback(
+    async (highlight: Highlight) => {
+      if (isBranching) {
+        return;
+      }
+
+      setIsBranching(true);
+      setError(null);
+      try {
+        const result = await createBranchFromSelection({
+          childNode: {
+            layout: buildChildLayout(nodeData.layout),
+            summary: `Selected context: ${truncateText(highlight.selectedTextSnapshot, 96)}`,
+            title: `Branch: ${truncateText(highlight.selectedTextSnapshot, 44)}`,
+          },
+          context: {
+            tokenEstimate: estimateTokenCount(highlight.selectedTextSnapshot),
+          },
+          endOffset: highlight.endOffset,
+          messageId: highlight.messageId,
+          selectedTextSnapshot: highlight.selectedTextSnapshot,
+          sourceHighlightId: highlight.id,
+          startOffset: highlight.startOffset,
+        });
+
+        setSelectionDraft(null);
+        window.getSelection()?.removeAllRanges();
+        await nodeData.onBranchCreated?.(result.childNode.id, id);
+      } catch (branchError) {
+        setError(branchError instanceof Error ? branchError.message : 'Unable to create branch');
+      } finally {
+        setIsBranching(false);
+      }
+    },
+    [id, isBranching, nodeData],
+  );
+
   const onDelete = useCallback(
     async (event: MouseEvent<HTMLButtonElement>) => {
       event.stopPropagation();
@@ -246,12 +300,22 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
   );
 
   return (
-    <article className={`conversation-node ${isExpanded ? 'is-selected is-expanded' : ''}`}>
+    <article
+      className={[
+        'conversation-node',
+        isExpanded ? 'is-selected is-expanded' : '',
+        selected ? 'is-flow-selected' : '',
+        nodeData.accentColor ? 'has-branch-accent' : '',
+      ]
+        .filter(Boolean)
+        .join(' ')}
+      style={nodeAccentStyle}
+    >
       <NodeResizer
         autoScale={false}
         color="#2563eb"
         handleClassName="node-resizer-handle nodrag nopan"
-        isVisible={isExpanded}
+        isVisible
         lineClassName="node-resizer-line nodrag nopan"
         minHeight={isExpanded ? 420 : 180}
         minWidth={isExpanded ? 520 : 300}
@@ -341,6 +405,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
                   message={message}
                   onAssistantSelection={onAssistantSelection}
                   onBranch={onBranch}
+                  onBranchFromHighlight={onBranchFromHighlight}
                   onBranchTargetSelected={nodeData.onBranchTargetSelected}
                   selectionDraft={selectionDraft?.messageId === message.id ? selectionDraft : null}
                   sourceNodeId={id}
@@ -406,16 +471,28 @@ function CollapsedNodeBody({
         <div className="conversation-node__highlights">
           <span>Branch points</span>
           {nodeData.branchHighlights.map((highlight) => (
-            <div className="conversation-node__highlight" key={highlight.id} title={highlight.text}>
+            <div
+              className="conversation-node__highlight"
+              key={highlight.id}
+              style={branchColorStyle(highlight.color, 'highlight')}
+              title={highlight.text}
+            >
               <button
                 className="conversation-node__highlight-button nodrag nopan"
                 onClick={(event) => {
                   event.stopPropagation();
-                  nodeData.onBranchTargetSelected?.(highlight.targetNodeId, sourceNodeId);
+                  const firstBranch = highlight.branches[0];
+                  if (firstBranch) {
+                    nodeData.onBranchTargetSelected?.(firstBranch.nodeId, sourceNodeId);
+                  }
                 }}
+                disabled={highlight.branches.length === 0}
                 type="button"
               >
                 {truncateText(highlight.text, 80)}
+                {highlight.branches.length > 1 ? (
+                  <span className="conversation-node__highlight-count">{highlight.branches.length}</span>
+                ) : null}
               </button>
               <Handle
                 className="node-handle node-handle--highlight"
@@ -441,16 +518,18 @@ function CanvasMessage({
   message,
   onAssistantSelection,
   onBranch,
+  onBranchFromHighlight,
   onBranchTargetSelected,
   selectionDraft,
   sourceNodeId,
 }: {
-  branchTargetsByHighlightId: Record<string, string>;
+  branchTargetsByHighlightId: Record<string, BranchTargetPreview[]>;
   highlights: Highlight[];
   isBranching: boolean;
   message: Message;
   onAssistantSelection: (message: Message, element: HTMLElement) => void;
   onBranch: () => void;
+  onBranchFromHighlight: (highlight: Highlight) => void;
   onBranchTargetSelected?: (targetNodeId: string, sourceNodeId: string) => void;
   selectionDraft: InlineSelectionDraft | null;
   sourceNodeId: string;
@@ -485,6 +564,8 @@ function CanvasMessage({
             content={message.content}
             draftRange={selectionDraft}
             highlights={isAssistant ? highlights : []}
+            isBranching={isBranching}
+            onBranchFromHighlight={onBranchFromHighlight}
             onBranchTargetSelected={onBranchTargetSelected}
             sourceNodeId={sourceNodeId}
             withHandles={isAssistant}
@@ -520,18 +601,23 @@ function HighlightedContent({
   content,
   draftRange,
   highlights,
+  isBranching,
+  onBranchFromHighlight,
   onBranchTargetSelected,
   sourceNodeId,
   withHandles,
 }: {
-  branchTargetsByHighlightId: Record<string, string>;
+  branchTargetsByHighlightId: Record<string, BranchTargetPreview[]>;
   content: string;
   draftRange?: InlineSelectionDraft | null;
   highlights: Highlight[];
+  isBranching: boolean;
+  onBranchFromHighlight: (highlight: Highlight) => void;
   onBranchTargetSelected?: (targetNodeId: string, sourceNodeId: string) => void;
   sourceNodeId: string;
   withHandles: boolean;
 }) {
+  const [openHighlightMenuId, setOpenHighlightMenuId] = useState<string | null>(null);
   const ranges = normalizeHighlights(content, highlights, draftRange);
   if (ranges.length === 0) {
     return <>{content}</>;
@@ -545,53 +631,81 @@ function HighlightedContent({
       parts.push(content.slice(cursor, range.startOffset));
     }
 
-    const targetNodeId = branchTargetsByHighlightId[range.id];
-    const canJumpToBranch = !range.isDraft && Boolean(targetNodeId);
+    const branchTargets = branchTargetsByHighlightId[range.id] ?? [];
+    const canOpenBranchMenu = !range.isDraft;
+    const isMenuOpen = openHighlightMenuId === range.id;
 
     parts.push(
-      <mark
-        className={[
-          'canvas-message-highlight',
-          range.isDraft ? 'canvas-message-highlight--draft' : '',
-          canJumpToBranch ? 'canvas-message-highlight--jumpable' : '',
-        ]
-          .filter(Boolean)
-          .join(' ')}
+      <span
+        className="canvas-message-highlight-wrap"
         key={range.id}
-        onClick={
-          canJumpToBranch
-            ? (event) => {
-                event.stopPropagation();
-                onBranchTargetSelected?.(targetNodeId, sourceNodeId);
-              }
-            : undefined
-        }
-        onKeyDown={
-          canJumpToBranch
-            ? (event) => {
-                if (event.key === 'Enter' || event.key === ' ') {
-                  event.preventDefault();
-                  event.stopPropagation();
-                  onBranchTargetSelected?.(targetNodeId, sourceNodeId);
-                }
-              }
-            : undefined
-        }
-        role={canJumpToBranch ? 'button' : undefined}
-        tabIndex={canJumpToBranch ? 0 : undefined}
-        title={canJumpToBranch ? 'Jump to branch node' : undefined}
+        style={range.color ? branchColorStyle(range.color, 'highlight') : undefined}
       >
-        {content.slice(range.startOffset, range.endOffset)}
-        {withHandles && !range.isDraft ? (
-          <Handle
-            className="node-handle node-handle--inline-highlight"
-            id={branchHighlightHandleId(range.id)}
-            isConnectable={false}
-            position={Position.Right}
-            type="source"
+        <mark
+          aria-expanded={canOpenBranchMenu ? isMenuOpen : undefined}
+          aria-haspopup={canOpenBranchMenu ? 'menu' : undefined}
+          className={[
+            'canvas-message-highlight',
+            range.isDraft ? 'canvas-message-highlight--draft' : '',
+            canOpenBranchMenu ? 'canvas-message-highlight--menu-trigger' : '',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+          onClick={
+            canOpenBranchMenu
+              ? (event) => {
+                  event.stopPropagation();
+                  setOpenHighlightMenuId((currentId) => (currentId === range.id ? null : range.id));
+                }
+              : undefined
+          }
+          onKeyDown={
+            canOpenBranchMenu
+              ? (event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    setOpenHighlightMenuId((currentId) => (currentId === range.id ? null : range.id));
+                  }
+                  if (event.key === 'Escape') {
+                    event.stopPropagation();
+                    setOpenHighlightMenuId(null);
+                  }
+                }
+              : undefined
+          }
+          onMouseUp={canOpenBranchMenu ? (event) => event.stopPropagation() : undefined}
+          role={canOpenBranchMenu ? 'button' : undefined}
+          tabIndex={canOpenBranchMenu ? 0 : undefined}
+          title={canOpenBranchMenu ? 'Open branch actions' : undefined}
+        >
+          {content.slice(range.startOffset, range.endOffset)}
+          {withHandles && !range.isDraft ? (
+            <Handle
+              className="node-handle node-handle--inline-highlight"
+              id={branchHighlightHandleId(range.id)}
+              isConnectable={false}
+              position={Position.Right}
+              type="source"
+            />
+          ) : null}
+        </mark>
+        {isMenuOpen ? (
+          <BranchHighlightMenu
+            branchTargets={branchTargets}
+            isBranching={isBranching}
+            onBranchFromHighlight={() => {
+              setOpenHighlightMenuId(null);
+              onBranchFromHighlight(range);
+            }}
+            onClose={() => setOpenHighlightMenuId(null)}
+            onJumpToBranch={(targetNodeId) => {
+              setOpenHighlightMenuId(null);
+              onBranchTargetSelected?.(targetNodeId, sourceNodeId);
+            }}
           />
         ) : null}
-      </mark>,
+      </span>,
     );
     cursor = range.endOffset;
   }
@@ -603,7 +717,57 @@ function HighlightedContent({
   return <>{parts}</>;
 }
 
-type RenderedHighlightRange = Pick<Highlight, 'endOffset' | 'id' | 'startOffset'> & {
+function BranchHighlightMenu({
+  branchTargets,
+  isBranching,
+  onBranchFromHighlight,
+  onClose,
+  onJumpToBranch,
+}: {
+  branchTargets: BranchTargetPreview[];
+  isBranching: boolean;
+  onBranchFromHighlight: () => void;
+  onClose: () => void;
+  onJumpToBranch: (targetNodeId: string) => void;
+}) {
+  return (
+    <span
+      className="highlight-branch-menu nodrag nopan"
+      onClick={(event) => event.stopPropagation()}
+      onMouseDown={(event) => {
+        event.preventDefault();
+        event.stopPropagation();
+      }}
+      role="menu"
+    >
+      <span className="highlight-branch-menu__title">Branch from highlight</span>
+      {branchTargets.length > 0 ? (
+        <span className="highlight-branch-menu__targets">
+          {branchTargets.map((target, index) => (
+            <button key={target.edgeId} onClick={() => onJumpToBranch(target.nodeId)} type="button">
+              {branchTargets.length === 1 ? 'Jump to existing branch' : `${index + 1}. ${truncateText(target.title, 42)}`}
+            </button>
+          ))}
+        </span>
+      ) : (
+        <span className="highlight-branch-menu__empty">No existing branch</span>
+      )}
+      <button disabled={isBranching} onClick={onBranchFromHighlight} type="button">
+        {isBranching ? <Loader2 className="spin" size={13} /> : <GitBranch size={13} />}
+        New branch from this highlight
+      </button>
+      <button className="highlight-branch-menu__secondary" onClick={onClose} type="button">
+        Close
+      </button>
+    </span>
+  );
+}
+
+type RenderedHighlightRange = Pick<
+  Highlight,
+  'anchorVersion' | 'endOffset' | 'id' | 'messageId' | 'selectedTextSnapshot' | 'startOffset'
+> & {
+  color?: BranchColor;
   isDraft: boolean;
 };
 
@@ -613,13 +777,20 @@ function normalizeHighlights(
   draftRange?: InlineSelectionDraft | null,
 ) {
   const candidates: RenderedHighlightRange[] = [
-    ...highlights.map((highlight) => ({ ...highlight, isDraft: false })),
+    ...highlights.map((highlight) => ({
+      ...highlight,
+      color: colorForHighlightId(highlight.id),
+      isDraft: false,
+    })),
   ];
   if (draftRange) {
     candidates.push({
+      anchorVersion: 0,
       endOffset: draftRange.endOffset,
       id: 'draft-selection',
       isDraft: true,
+      messageId: draftRange.messageId,
+      selectedTextSnapshot: draftRange.selectedTextSnapshot,
       startOffset: draftRange.startOffset,
     });
   }
@@ -644,6 +815,25 @@ function normalizeHighlights(
   }
 
   return ranges;
+}
+
+function branchColorStyle(color: BranchColor, scope: 'highlight' | 'node'): CSSProperties {
+  if (scope === 'node') {
+    return {
+      '--node-accent': color.edge,
+      '--node-accent-border': color.border,
+      '--node-accent-soft': color.softBackground,
+      '--node-accent-text': color.text,
+    } as CSSProperties;
+  }
+
+  return {
+    '--highlight-bg': color.background,
+    '--highlight-border': color.border,
+    '--highlight-edge': color.edge,
+    '--highlight-soft-bg': color.softBackground,
+    '--highlight-text': color.text,
+  } as CSSProperties;
 }
 
 function buildChildLayout(parentLayout?: NodeLayout | null): NodeLayout {

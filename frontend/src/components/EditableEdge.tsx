@@ -2,10 +2,12 @@ import {
   BaseEdge,
   EdgeLabelRenderer,
   EdgeProps,
+  getBezierPath,
   getSmoothStepPath,
   Position,
 } from '@xyflow/react';
-import { FormEvent, KeyboardEvent, useEffect, useRef, useState } from 'react';
+import { Trash2 } from 'lucide-react';
+import { FormEvent, KeyboardEvent, MouseEvent, useEffect, useRef, useState } from 'react';
 import { ConversationFlowEdge, KnowFlowEdgeData } from '../lib/reactFlowAdapter';
 
 export function EditableEdge({
@@ -28,6 +30,7 @@ export function EditableEdge({
   const shouldShowLabel = Boolean(label) || (canEdit && selected);
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [draft, setDraft] = useState(label);
   const skipNextBlurSaveRef = useRef(false);
 
@@ -35,7 +38,7 @@ export function EditableEdge({
     setDraft(label);
   }, [label]);
 
-  const [edgePath, labelX, labelY] = getSmoothStepPath({
+  const smoothStepPath = getSmoothStepPath({
     sourcePosition,
     sourceX,
     sourceY,
@@ -43,6 +46,15 @@ export function EditableEdge({
     targetX,
     targetY,
   });
+  const bezierPath = getBezierPath({
+    sourcePosition,
+    sourceX,
+    sourceY,
+    targetPosition,
+    targetX,
+    targetY,
+  });
+  const [edgePath, labelX, labelY] = isBranchEdge ? smoothStepPath : bezierPath;
 
   const saveLabel = async () => {
     if (!canEdit || isSaving) {
@@ -80,6 +92,20 @@ export function EditableEdge({
     }
   };
 
+  const onDelete = async (event: MouseEvent<HTMLButtonElement>) => {
+    event.stopPropagation();
+    if (!canEdit || isDeleting) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      await edgeData.onEdgeDeleteRequested?.(id);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <>
       <BaseEdge id={id} interactionWidth={24} markerEnd={markerEnd} path={edgePath} style={style} />
@@ -111,19 +137,33 @@ export function EditableEdge({
                 />
               </form>
             ) : (
-              <button
-                className={`editable-edge-label__button ${isBranchEdge ? 'is-branch' : ''}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  if (canEdit) {
-                    setIsEditing(true);
-                  }
-                }}
-                title={canEdit ? 'Edit relationship label' : 'Branch source text'}
-                type="button"
-              >
-                {label || 'Label'}
-              </button>
+              <div className="editable-edge-label__actions">
+                <button
+                  className={`editable-edge-label__button ${isBranchEdge ? 'is-branch' : ''}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (canEdit) {
+                      setIsEditing(true);
+                    }
+                  }}
+                  title={canEdit ? 'Edit relationship label' : 'Branch source text'}
+                  type="button"
+                >
+                  {label || 'Label'}
+                </button>
+                {canEdit && selected ? (
+                  <button
+                    aria-label="Delete relationship edge"
+                    className="editable-edge-label__delete"
+                    disabled={isDeleting}
+                    onClick={onDelete}
+                    title="Delete relationship edge"
+                    type="button"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                ) : null}
+              </div>
             )}
           </div>
         </EdgeLabelRenderer>

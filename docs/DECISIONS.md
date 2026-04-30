@@ -148,6 +148,33 @@ This file records major product and architecture decisions. Update it whenever a
 - Future scalable alternative: Transactional command handler plus audit/event records for graph operations.
 - Revisit trigger: Branch operations become multi-step, async, or cross-graph.
 
+### 2026-04-30: Reuse A Highlight For Multiple Branches From The Same Text
+
+- Decision: If the user branches again from an existing persisted highlight, reuse the same `Highlight` record and create another child node, branch edge, run, and context snapshot.
+- Reason: The highlighted text is the provenance anchor. Reusing it keeps the data model clean and makes it clear that multiple child conversations came from the same source selection.
+- Tradeoff: The UI needs a small highlight menu with existing branches and a new-branch action instead of a single click-to-jump behavior.
+- Simpler MVP alternative: Duplicate the highlight each time the user branches from the same text.
+- Future scalable alternative: A richer per-highlight branch list with branch names, summaries, ordering, and optional grouping.
+- Revisit trigger: Users expect different branches from the same text to have independent anchors or per-branch highlight metadata.
+
+### 2026-04-30: Use Deterministic Branch Colors Before User Color Controls
+
+- Decision: Persisted highlights get deterministic accent colors, and branch edges plus child branch nodes inherit the source highlight color. Do not add a user color picker or generic highlight-only tool in v0.
+- Reason: Color makes provenance easier to scan, but manual color tools would expand KnowFlow toward generic annotation and note-taking before the branch workflow is stable.
+- Tradeoff: Users cannot assign semantic colors manually yet, and repeated colors can appear once the palette is exhausted.
+- Simpler MVP alternative: Use one yellow highlight color for all branch points.
+- Future scalable alternative: Add user-selectable highlight colors, named categories, and palette controls if users use colors to organize learning concepts.
+- Revisit trigger: Users confuse branches with the same color, request semantic color coding, or a graph has enough highlights that deterministic palette reuse becomes noisy.
+
+### 2026-04-30: Keep Manual Edges Separate From Branch Edges
+
+- Decision: Manual node-to-node edges are lightweight peer relationships between collapsed node-level handles. They may have editable labels and delete controls. They should not originate from branch highlights or branch-point chips.
+- Reason: Manual relationships and branch provenance mean different things. Mixing them would make it unclear whether an edge represents a selected-text learning fork or a user-authored association.
+- Tradeoff: Manual linking is less expressive than freeform edge drawing from arbitrary text spans.
+- Simpler MVP alternative: Disable manual edges until branching is polished.
+- Future scalable alternative: Add richer relationship types, line styles, and explicit semantic edge categories after the graph model proves useful.
+- Revisit trigger: Users need more explicit relationship modeling, or manual edges create confusion with branch edges during user testing.
+
 ### 2026-04-30: Use OpenAI Responses API With GPT-5.4 Mini As The First Real Provider
 
 - Decision: The first real AI adapter should be `provider = openai` using the OpenAI Responses API with default `model = gpt-5.4-mini`. Keep the existing `stub` provider for deterministic local tests.

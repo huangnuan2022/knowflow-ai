@@ -78,11 +78,13 @@ Started in Phase 3:
 - Branch edges anchor to inline highlight spans in expanded source nodes, with stable highlight-chip anchors as the collapsed-node fallback.
 - Collapsed nodes show only the node title, node summary, and branch-points list. Conversation messages, inline highlights, edit controls, and ask/branch controls belong in the expanded node.
 - Persisted branch highlights and collapsed branch-point chips can be clicked to jump to the connected child node.
+- Clicking a persisted inline highlight opens a compact menu with existing child branches and a "new branch from this highlight" action. Additional branches from the same selected text must reuse the existing `Highlight` record instead of duplicating it.
+- Persisted highlights use deterministic accent colors. Branch edges and child branch nodes inherit the same color so the provenance path is visually traceable without requiring a user color picker in v0.
 - Dragging a node should move it without expanding it; clicking opens the expanded node.
 - New nodes should be created near the current visible canvas center, not at a fixed global graph coordinate.
-- Selected/expanded nodes can be resized from their borders, and resized dimensions are stored in node layout metadata.
+- Collapsed and expanded nodes can be resized from their borders, and resized dimensions are stored in node layout metadata.
 - Node title and summary editing from the frontend, saved through the backend node update boundary.
-- Manual edges can be created only between collapsed node-level side handles and labeled as lightweight peer relationships. Manual edges are undirected by default. Branch points are reserved for branch navigation, not manual connection starts, and branch edge labels remain tied to selected source text.
+- Manual edges can be created only between collapsed node-level side handles and labeled as lightweight peer relationships. Manual edges are undirected by default, editable, and deletable. Branch points are reserved for branch navigation, not manual connection starts, and branch edge labels remain tied to selected source text.
 - The right sidebar acts as a secondary read-only inspector instead of the primary ask/branch surface.
 
 Not implemented in Phase 3:
@@ -147,6 +149,7 @@ Not implemented in Phase 3:
 - A user can select text in the AI response inside the canvas node and create a child node from a compact inline Branch action.
 - The selected text is persisted as a `Highlight` or `TextSelection`.
 - The child node is connected by a branch edge that visually originates from the persisted highlight when the source node is expanded.
+- If the user creates another branch from an existing persisted highlight, the backend reuses the same `Highlight` and creates a new child node, branch edge, run, and context snapshot atomically.
 - The child node shows or receives the selected text as context.
 - AI runs have visible success or failure status.
 - The graph remains usable for at least 30 conversation nodes in a v0 performance fixture.

@@ -29,6 +29,10 @@ class BranchContextDto {
 }
 
 export class CreateBranchFromSelectionDto {
+  @IsOptional()
+  @IsString()
+  sourceHighlightId?: string;
+
   @IsString()
   messageId: string;
 

@@ -82,6 +82,10 @@ export async function updateEdgeLabel(edgeId: string, label: string) {
   return patch<DomainEdge>(`/edges/${edgeId}`, { label });
 }
 
+export async function deleteEdge(edgeId: string) {
+  return del<DomainEdge>(`/edges/${edgeId}`);
+}
+
 export async function getMessages(nodeId: string) {
   return get<Message[]>(`/messages?nodeId=${nodeId}`);
 }
@@ -119,6 +123,7 @@ export async function executeRun(runId: string) {
 }
 
 export async function createBranchFromSelection(input: {
+  sourceHighlightId?: string;
   messageId: string;
   startOffset: number;
   endOffset: number;
@@ -144,6 +149,7 @@ export async function createBranchFromSelection(input: {
     endOffset: input.endOffset,
     messageId: input.messageId,
     selectedTextSnapshot: input.selectedTextSnapshot,
+    sourceHighlightId: input.sourceHighlightId,
     startOffset: input.startOffset,
   });
 }

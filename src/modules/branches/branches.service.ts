@@ -27,15 +27,30 @@ export class BranchesService {
     }
 
     return this.prisma.$transaction(async (tx) => {
-      const highlight = await tx.highlight.create({
-        data: {
-          anchorVersion: sourceMessage.version,
-          endOffset: createBranchDto.endOffset,
-          messageId: sourceMessage.id,
-          selectedTextSnapshot: createBranchDto.selectedTextSnapshot,
-          startOffset: createBranchDto.startOffset,
-        },
-      });
+      const highlight = createBranchDto.sourceHighlightId
+        ? await tx.highlight.findUnique({ where: { id: createBranchDto.sourceHighlightId } })
+        : await tx.highlight.create({
+            data: {
+              anchorVersion: sourceMessage.version,
+              endOffset: createBranchDto.endOffset,
+              messageId: sourceMessage.id,
+              selectedTextSnapshot: createBranchDto.selectedTextSnapshot,
+              startOffset: createBranchDto.startOffset,
+            },
+          });
+
+      if (!highlight) {
+        throw new NotFoundException(`Highlight ${createBranchDto.sourceHighlightId} was not found`);
+      }
+
+      if (
+        highlight.messageId !== sourceMessage.id ||
+        highlight.startOffset !== createBranchDto.startOffset ||
+        highlight.endOffset !== createBranchDto.endOffset ||
+        highlight.selectedTextSnapshot !== createBranchDto.selectedTextSnapshot
+      ) {
+        throw new BadRequestException('sourceHighlightId does not match the requested source selection');
+      }
 
       const childNode = await tx.node.create({
         data: {

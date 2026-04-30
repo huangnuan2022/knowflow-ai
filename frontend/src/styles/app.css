@@ -131,7 +131,7 @@ button {
 
 .react-flow__edge.branch-edge .react-flow__edge-path {
   stroke: #2563eb;
-  stroke-opacity: 0.5;
+  stroke-opacity: 0.54;
   stroke-width: 1.65;
 }
 
@@ -152,6 +152,19 @@ button {
   box-shadow: 0 0 0 3px rgb(37 99 235 / 0.14);
 }
 
+.conversation-node.has-branch-accent {
+  border-color: var(--node-accent-border, #cbd5e1);
+  box-shadow:
+    inset 4px 0 0 var(--node-accent, #2563eb),
+    0 12px 28px rgb(15 23 42 / 0.08);
+}
+
+.conversation-node.has-branch-accent.is-selected {
+  box-shadow:
+    inset 4px 0 0 var(--node-accent, #2563eb),
+    0 0 0 3px rgb(37 99 235 / 0.14);
+}
+
 .conversation-node.is-expanded {
   display: flex;
   flex-direction: column;
@@ -162,9 +175,14 @@ button {
 
 .node-resizer-line {
   border-color: rgb(37 99 235 / 0.22) !important;
-  opacity: 1 !important;
+  opacity: 0.28 !important;
   pointer-events: all !important;
   z-index: 30 !important;
+}
+
+.conversation-node:hover .node-resizer-line,
+.conversation-node.is-expanded .node-resizer-line {
+  opacity: 1 !important;
 }
 
 .node-resizer-line:hover {
@@ -201,9 +219,16 @@ button {
   background: #ffffff !important;
   border: 2px solid rgb(37 99 235 / 0.72) !important;
   height: 18px !important;
+  opacity: 0.32 !important;
   pointer-events: all !important;
   width: 18px !important;
   z-index: 35 !important;
+}
+
+.conversation-node:hover .node-resizer-handle,
+.conversation-node.is-expanded .node-resizer-handle,
+.node-resizer-handle:hover {
+  opacity: 1 !important;
 }
 
 .conversation-node__header {
@@ -348,10 +373,10 @@ button {
 }
 
 .conversation-node__context {
-  background: #eef2ff;
-  border: 1px solid #c7d2fe;
+  background: var(--node-accent-soft, #eef2ff);
+  border: 1px solid var(--node-accent-border, #c7d2fe);
   border-radius: 8px;
-  color: #312e81;
+  color: var(--node-accent-text, #312e81);
   display: grid;
   gap: 4px;
   padding: 9px 10px;
@@ -364,7 +389,7 @@ button {
 }
 
 .conversation-node__context p {
-  color: #312e81;
+  color: var(--node-accent-text, #312e81);
   font-size: 12px;
   line-height: 1.4;
   max-height: 48px;
@@ -456,28 +481,100 @@ button {
   outline: none;
 }
 
+.canvas-message-highlight-wrap {
+  display: inline;
+  position: relative;
+}
+
 .canvas-message-highlight {
-  background: #fef08a;
+  background: var(--highlight-bg, #fef08a);
   border-radius: 4px;
-  color: inherit;
+  color: var(--highlight-text, inherit);
   padding: 0 2px;
   position: relative;
 }
 
 .canvas-message-highlight--draft {
-  box-shadow: 0 0 0 1px #facc15 inset;
+  box-shadow: 0 0 0 1px var(--highlight-border, #facc15) inset;
 }
 
-.canvas-message-highlight--jumpable {
+.canvas-message-highlight--menu-trigger {
   cursor: pointer;
 }
 
-.canvas-message-highlight--jumpable:hover,
-.canvas-message-highlight--jumpable:focus {
+.canvas-message-highlight--menu-trigger:hover,
+.canvas-message-highlight--menu-trigger:focus {
   box-shadow:
-    0 0 0 1px #eab308 inset,
-    0 0 0 2px rgb(234 179 8 / 0.16);
+    0 0 0 1px var(--highlight-border, #eab308) inset,
+    0 0 0 2px color-mix(in srgb, var(--highlight-border, #eab308) 18%, transparent);
   outline: none;
+}
+
+.highlight-branch-menu {
+  background: #ffffff;
+  border: 1px solid var(--highlight-border, #eab308);
+  border-radius: 8px;
+  box-shadow: 0 14px 30px rgb(15 23 42 / 0.18);
+  color: #111827;
+  display: grid;
+  gap: 6px;
+  left: 100%;
+  min-width: 210px;
+  padding: 8px;
+  position: absolute;
+  top: 100%;
+  transform: translate(6px, 4px);
+  white-space: normal;
+  z-index: 40;
+}
+
+.highlight-branch-menu__title,
+.highlight-branch-menu__empty {
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.highlight-branch-menu__targets {
+  display: grid;
+  gap: 5px;
+}
+
+.highlight-branch-menu button {
+  align-items: center;
+  background: var(--highlight-soft-bg, #fffbeb);
+  border: 1px solid var(--highlight-border, #eab308);
+  border-radius: 7px;
+  color: var(--highlight-text, #713f12);
+  cursor: pointer;
+  display: inline-flex;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 650;
+  gap: 6px;
+  justify-content: flex-start;
+  line-height: 1.2;
+  min-height: 28px;
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.highlight-branch-menu button:hover,
+.highlight-branch-menu button:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--highlight-border, #eab308) 18%, transparent);
+  outline: none;
+}
+
+.highlight-branch-menu button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.highlight-branch-menu .highlight-branch-menu__secondary {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  color: #64748b;
 }
 
 .inline-branch-button {
@@ -544,14 +641,17 @@ button {
 }
 
 .conversation-node__highlight-button {
-  background: #fef08a;
-  border: 1px solid #fde047;
+  align-items: center;
+  background: var(--highlight-bg, #fef08a);
+  border: 1px solid var(--highlight-border, #fde047);
   border-radius: 8px;
-  color: #713f12;
+  color: var(--highlight-text, #713f12);
   cursor: pointer;
-  display: block;
+  display: flex;
   font: inherit;
   font-size: 12px;
+  gap: 8px;
+  justify-content: space-between;
   line-height: 1.35;
   overflow-wrap: anywhere;
   padding: 7px 24px 7px 9px;
@@ -561,9 +661,27 @@ button {
 
 .conversation-node__highlight-button:hover,
 .conversation-node__highlight-button:focus {
-  border-color: #eab308;
-  box-shadow: 0 0 0 3px rgb(234 179 8 / 0.18);
+  border-color: var(--highlight-edge, #eab308);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--highlight-border, #eab308) 18%, transparent);
   outline: none;
+}
+
+.conversation-node__highlight-button:disabled {
+  cursor: default;
+  opacity: 0.75;
+}
+
+.conversation-node__highlight-count {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid var(--highlight-border, #fde047);
+  border-radius: 999px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 11px;
+  justify-content: center;
+  min-width: 20px;
+  padding: 1px 5px;
 }
 
 .node-handle {
@@ -635,6 +753,12 @@ button {
   z-index: 15;
 }
 
+.editable-edge-label__actions {
+  align-items: center;
+  display: inline-flex;
+  gap: 4px;
+}
+
 .editable-edge-label__button {
   background: #ffffff;
   border: 1px solid #cbd5e1;
@@ -662,6 +786,30 @@ button {
 .editable-edge-label__button.is-branch {
   border-color: transparent;
   color: #111827;
+}
+
+.editable-edge-label__delete {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #fecaca;
+  border-radius: 6px;
+  color: #b91c1c;
+  cursor: pointer;
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  width: 24px;
+}
+
+.editable-edge-label__delete:hover,
+.editable-edge-label__delete:focus {
+  box-shadow: 0 0 0 3px rgb(239 68 68 / 0.12);
+  outline: none;
+}
+
+.editable-edge-label__delete:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
 }
 
 .editable-edge-label__form input {

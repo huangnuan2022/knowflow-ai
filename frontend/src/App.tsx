@@ -21,6 +21,7 @@ import { EditableEdge } from './components/EditableEdge';
 import {
   createManualEdge,
   createNode,
+  deleteEdge,
   deleteNode,
   loadGraphBundle,
   updateEdgeLabel,
@@ -275,6 +276,27 @@ function KnowFlowCanvas() {
     }
   }, []);
 
+  const onEdgeDeleteRequested = useCallback(async (edgeId: string) => {
+    setIsSaving(true);
+    setError(null);
+    try {
+      await deleteEdge(edgeId);
+      setBundle((currentBundle) =>
+        currentBundle
+          ? {
+              ...currentBundle,
+              edges: currentBundle.edges.filter((edge) => edge.id !== edgeId),
+            }
+          : currentBundle,
+      );
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Unable to delete edge');
+      throw deleteError;
+    } finally {
+      setIsSaving(false);
+    }
+  }, []);
+
   const onNodeDetailsChanged = useCallback(async (nodeId: string, input: { title?: string; summary?: string | null }) => {
     setIsSaving(true);
     setError(null);
@@ -360,8 +382,8 @@ function KnowFlowCanvas() {
   ]);
 
   useEffect(() => {
-    setEdges(bundle ? toReactFlowEdges(bundle.edges, { onEdgeLabelChanged }, selectedNodeId) : []);
-  }, [bundle, onEdgeLabelChanged, selectedNodeId, setEdges]);
+    setEdges(bundle ? toReactFlowEdges(bundle.edges, { onEdgeDeleteRequested, onEdgeLabelChanged }, selectedNodeId) : []);
+  }, [bundle, onEdgeDeleteRequested, onEdgeLabelChanged, selectedNodeId, setEdges]);
 
   useEffect(() => {
     if (!pendingBranchView) {

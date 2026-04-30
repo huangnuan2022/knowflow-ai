@@ -170,6 +170,77 @@ describe('Branch from selection command', () => {
     expect(response.status).toBe(400);
     await expect(branchRecordCounts(prisma)).resolves.toEqual(before);
   });
+
+  it('can create another child branch from an existing highlight without duplicating the highlight', async () => {
+    const { message } = await createSourceConversation(baseUrl);
+    const selectedTextSnapshot = 'Path compression';
+
+    const firstBranch = await requestJson<{
+      childNode: RecordWithId;
+      edge: RecordWithId & { sourceHighlightId: string; type: EdgeType };
+      highlight: RecordWithId & {
+        endOffset: number;
+        messageId: string;
+        selectedTextSnapshot: string;
+        startOffset: number;
+      };
+    }>(baseUrl, '/branches/from-selection', {
+      body: JSON.stringify({
+        childNode: {
+          title: 'Path Compression',
+        },
+        context: {
+          contextPolicyVersion: 'branch-context-v1',
+          promptTemplateVersion: 'branch-prompt-v1',
+        },
+        endOffset: selectedTextSnapshot.length,
+        messageId: message.id,
+        selectedTextSnapshot,
+        startOffset: 0,
+      }),
+      method: 'POST',
+    });
+
+    const beforeSecondBranch = await branchRecordCounts(prisma);
+
+    const secondBranch = await requestJson<{
+      childNode: RecordWithId;
+      contextSnapshot: RecordWithId & { includedHighlightIds: string[] };
+      edge: RecordWithId & { sourceHighlightId: string; type: EdgeType };
+      highlight: RecordWithId;
+    }>(baseUrl, '/branches/from-selection', {
+      body: JSON.stringify({
+        childNode: {
+          title: 'Another Path Compression Branch',
+        },
+        context: {
+          contextPolicyVersion: 'branch-context-v1',
+          promptTemplateVersion: 'branch-prompt-v1',
+        },
+        endOffset: firstBranch.highlight.endOffset,
+        messageId: firstBranch.highlight.messageId,
+        selectedTextSnapshot: firstBranch.highlight.selectedTextSnapshot,
+        sourceHighlightId: firstBranch.highlight.id,
+        startOffset: firstBranch.highlight.startOffset,
+      }),
+      method: 'POST',
+    });
+
+    expect(secondBranch.highlight.id).toBe(firstBranch.highlight.id);
+    expect(secondBranch.edge).toMatchObject({
+      sourceHighlightId: firstBranch.highlight.id,
+      type: EdgeType.BRANCH,
+    });
+    expect(secondBranch.contextSnapshot.includedHighlightIds).toContain(firstBranch.highlight.id);
+    await expect(branchRecordCounts(prisma)).resolves.toEqual({
+      ...beforeSecondBranch,
+      contextSnapshots: beforeSecondBranch.contextSnapshots + 1,
+      edges: beforeSecondBranch.edges + 1,
+      highlights: beforeSecondBranch.highlights,
+      nodes: beforeSecondBranch.nodes + 1,
+      runs: beforeSecondBranch.runs + 1,
+    });
+  });
 });
 
 async function createSourceConversation(baseUrl: string) {
