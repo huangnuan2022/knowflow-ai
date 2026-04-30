@@ -81,12 +81,13 @@ Current Phase 1 routes:
 | Graphs | `POST /api/graphs`, `GET /api/graphs?projectId=...`, `GET /api/graphs/:id`, `PATCH /api/graphs/:id`, `DELETE /api/graphs/:id` | Graphs stay separate from canvas renderer state. |
 | Nodes | `POST /api/nodes`, `GET /api/nodes?graphId=...`, `GET /api/nodes/:id`, `PATCH /api/nodes/:id`, `DELETE /api/nodes/:id` | Node title, summary, type, and layout metadata are editable. |
 | Edges | `POST /api/edges`, `GET /api/edges?graphId=...`, `GET /api/edges/:id`, `PATCH /api/edges/:id`, `DELETE /api/edges/:id` | Edge type distinguishes manual, branch, and future graph-link edges. |
+| Branches | `POST /api/branches/from-selection` | Transactional command for the core branch workflow. |
 | Messages | `POST /api/messages`, `GET /api/messages?nodeId=...`, `GET /api/messages/:id`, `DELETE /api/messages/:id` | Messages are immutable in v0; no update route. |
 | Highlights | `POST /api/highlights`, `GET /api/highlights?messageId=...`, `GET /api/highlights/:id`, `DELETE /api/highlights/:id` | Highlights are anchored selections; no update route. |
 | Runs | `POST /api/runs`, `GET /api/runs?nodeId=...&status=...`, `GET /api/runs/:id`, `PATCH /api/runs/:id`, `DELETE /api/runs/:id` | Run records only; no AI provider call yet. |
 | ContextSnapshots | `POST /api/context-snapshots`, `GET /api/context-snapshots?runId=...`, `GET /api/context-snapshots/:id`, `DELETE /api/context-snapshots/:id` | Stores references and metadata, not rendered prompts by default. |
 
-The branch-from-selection command is not implemented in Phase 1. When added, it must be a backend transaction rather than a client sequence of separate CRUD calls.
+`POST /api/branches/from-selection` creates the branch operation as one backend transaction rather than a client sequence of separate CRUD calls. It creates the Highlight, child conversation Node, branch Edge, placeholder Run, and ContextSnapshot together.
 
 ## Database Direction
 
@@ -186,7 +187,8 @@ The branch operation should be transactional. It should create:
 - child node,
 - branch edge,
 - selected text snapshot,
-- initial child context.
+- placeholder run,
+- initial child context snapshot.
 
 If any part fails, the graph should not be left with a dangling highlight, node, or edge.
 

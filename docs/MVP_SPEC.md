@@ -23,11 +23,12 @@ Implemented in Phase 1:
 - Local Docker Compose PostgreSQL bootstrap for dev and test databases.
 - Prisma migration application verified against local `knowflow` and `knowflow_test` databases.
 - Integration test that creates User, Project, Graph, Node, Message, Highlight, Edge, Run, and ContextSnapshot through HTTP API boundaries.
+- Transactional branch-from-selection backend command.
+- Integration tests for branch-from-selection success and invalid-selection failure without partial branch records.
 
 Not implemented in Phase 1:
 
 - Frontend canvas.
-- Branch-from-selection command handler.
 - AI provider adapter implementation.
 - Context builder implementation.
 - Export/import.
