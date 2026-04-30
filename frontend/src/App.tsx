@@ -48,7 +48,7 @@ function KnowFlowCanvas() {
     try {
       const nextBundle = await loadGraphBundle();
       setBundle(nextBundle);
-      setNodes(toReactFlowNodes(nextBundle.nodes));
+      setNodes(toReactFlowNodes(nextBundle.nodes, nextBundle));
       setEdges(toReactFlowEdges(nextBundle.edges));
       return nextBundle;
     } catch (loadError) {
@@ -121,11 +121,18 @@ function KnowFlowCanvas() {
         },
         title: `Conversation ${nextNodeNumber}`,
       });
-      setNodes((currentNodes: ConversationFlowNode[]) => [...currentNodes, ...toReactFlowNodes([node])]);
+      setNodes((currentNodes: ConversationFlowNode[]) => [
+        ...currentNodes,
+        ...toReactFlowNodes([node], { edges: bundle.edges, messagesByNodeId: bundle.messagesByNodeId }),
+      ]);
       setBundle((currentBundle) =>
         currentBundle
           ? {
               ...currentBundle,
+              messagesByNodeId: {
+                ...currentBundle.messagesByNodeId,
+                [node.id]: [],
+              },
               nodes: [...currentBundle.nodes, node],
             }
           : currentBundle,
@@ -145,6 +152,10 @@ function KnowFlowCanvas() {
     },
     [refresh],
   );
+
+  const onNodeMessagesChanged = useCallback(async () => {
+    await refresh();
+  }, [refresh]);
 
   const onConnect = useCallback(
     async (connection: Connection) => {
@@ -231,6 +242,7 @@ function KnowFlowCanvas() {
           branchContext={selectedNodeBranchContext}
           node={selectedNode}
           onBranchCreated={onBranchCreated}
+          onNodeMessagesChanged={onNodeMessagesChanged}
         />
       </div>
     </main>

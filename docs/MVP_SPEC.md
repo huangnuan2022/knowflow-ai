@@ -68,6 +68,8 @@ Started in Phase 3:
 - Graph refresh and automatic child-node selection after a branch is created.
 - Context chip for a child branch showing the selected text that created the branch.
 - Visual highlight rendering for persisted branch selections when viewing the source message.
+- Canvas nodes show recent conversation message previews instead of title-only cards.
+- Branch edges anchor to the rendered highlight chip inside the source node.
 
 Not implemented in Phase 3:
 
@@ -77,6 +79,7 @@ Not implemented in Phase 3:
 - Real-provider model selection UI.
 - Batched highlight loading.
 - Context chip controls for adding or removing graph context.
+- Pixel-perfect inline edge anchors inside rich Markdown text.
 
 ### Included Features
 

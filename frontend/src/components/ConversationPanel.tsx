@@ -15,6 +15,7 @@ type ConversationPanelProps = {
   branchContext?: BranchContext;
   node?: DomainNode;
   onBranchCreated?: (childNodeId: string) => Promise<void> | void;
+  onNodeMessagesChanged?: () => Promise<void> | void;
 };
 
 type BranchContext = {
@@ -28,7 +29,12 @@ type BranchSelectionDraft = TextSelectionRange & {
 
 type HighlightsByMessageId = Record<string, Highlight[]>;
 
-export function ConversationPanel({ branchContext, node, onBranchCreated }: ConversationPanelProps) {
+export function ConversationPanel({
+  branchContext,
+  node,
+  onBranchCreated,
+  onNodeMessagesChanged,
+}: ConversationPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [highlightsByMessageId, setHighlightsByMessageId] = useState<HighlightsByMessageId>({});
   const [draft, setDraft] = useState('');
@@ -105,6 +111,8 @@ export function ConversationPanel({ branchContext, node, onBranchCreated }: Conv
         if (result.run.status === 'FAILED') {
           setError(result.run.errorMessage ?? 'AI run failed');
         }
+
+        await onNodeMessagesChanged?.();
       } catch (submitError) {
         setError(submitError instanceof Error ? submitError.message : 'Unable to run AI');
         await refreshMessages();
@@ -112,7 +120,7 @@ export function ConversationPanel({ branchContext, node, onBranchCreated }: Conv
         setIsSubmitting(false);
       }
     },
-    [draft, isSubmitting, node, refreshMessages],
+    [draft, isSubmitting, node, onNodeMessagesChanged, refreshMessages],
   );
 
   const onBranch = useCallback(async () => {

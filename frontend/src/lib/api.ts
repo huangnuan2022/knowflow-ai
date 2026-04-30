@@ -29,12 +29,14 @@ export async function loadGraphBundle(): Promise<GraphBundle> {
     get<DomainNode[]>(`/nodes?graphId=${activeGraph.id}`),
     get<DomainEdge[]>(`/edges?graphId=${activeGraph.id}`),
   ]);
+  const messagesByNodeId = await loadMessagesByNodeId(nodes);
 
   return {
     activeGraph,
     activeProject,
     edges,
     graphs,
+    messagesByNodeId,
     nodes,
     projects: projects.length > 0 ? projects : [activeProject],
   };
@@ -144,6 +146,11 @@ async function createGraph(projectId: string) {
     projectId,
     title: 'Union Find / Path Compression',
   });
+}
+
+async function loadMessagesByNodeId(nodes: DomainNode[]) {
+  const entries = await Promise.all(nodes.map(async (node) => [node.id, await getMessages(node.id)] as const));
+  return Object.fromEntries(entries);
 }
 
 async function get<T>(path: string) {

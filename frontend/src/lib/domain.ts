@@ -114,4 +114,5 @@ export type GraphBundle = {
   activeGraph: Graph;
   nodes: DomainNode[];
   edges: DomainEdge[];
+  messagesByNodeId: Record<string, Message[]>;
 };
