@@ -534,7 +534,7 @@ button {
 .topbar__actions {
   align-items: center;
   display: flex;
-  gap: 10px;
+  gap: 8px;
   justify-self: end;
 }
 
@@ -610,6 +610,13 @@ button {
   opacity: 0.62;
 }
 
+.workspace-manager__button-group {
+  align-items: center;
+  display: inline-flex;
+  gap: 6px;
+  min-width: 0;
+}
+
 @media (max-width: 1240px) {
   .topbar {
     align-items: start;
@@ -630,8 +637,9 @@ button {
   border: 1px solid #a7f3d0;
   border-radius: 999px;
   color: #047857;
-  font-size: 13px;
-  padding: 6px 10px;
+  font-size: 11px;
+  line-height: 1.2;
+  padding: 4px 8px;
   white-space: nowrap;
 }
 
@@ -640,10 +648,11 @@ button {
   border: 1px solid #bfdbfe;
   border-radius: 999px;
   color: #1e40af;
-  font-size: 12px;
-  max-width: 260px;
+  font-size: 11px;
+  line-height: 1.2;
+  max-width: 170px;
   overflow: hidden;
-  padding: 6px 10px;
+  padding: 4px 8px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -666,6 +675,23 @@ button {
   background: #ffffff;
   color: #334155;
   width: 38px;
+}
+
+.icon-button--compact {
+  min-height: 32px;
+  width: 32px;
+}
+
+.icon-button--danger {
+  color: #b91c1c;
+}
+
+.icon-button--danger:hover,
+.icon-button--danger:focus {
+  background: #fef2f2;
+  border-color: #fecaca;
+  box-shadow: 0 0 0 3px rgb(248 113 113 / 0.16);
+  outline: none;
 }
 
 .primary-button {
@@ -692,6 +718,7 @@ button {
   outline: none;
 }
 
+.icon-button:disabled,
 .secondary-button:disabled,
 .primary-button:disabled {
   cursor: not-allowed;

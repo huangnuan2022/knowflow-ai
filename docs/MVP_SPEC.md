@@ -163,6 +163,7 @@ Not implemented in Phase 3:
 - A user can switch between existing projects and existing graphs from the workspace header.
 - A user can create a new project and receive a blank starter graph for that project.
 - A user can create a new graph inside the active project.
+- A user can delete the active graph after confirmation; if it is the project's last graph, the UI falls back to a blank replacement graph.
 - A user can edit the active project title, active project description, and active graph title.
 - The active project and graph survive browser refresh through URL query parameters and localStorage.
 - If the requested project or graph no longer exists, the UI falls back to a valid project and graph.

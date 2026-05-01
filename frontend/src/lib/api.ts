@@ -116,6 +116,10 @@ export async function updateGraph(graphId: string, input: { title?: string }) {
   return patch<Graph>(`/graphs/${graphId}`, input);
 }
 
+export async function deleteGraph(graphId: string) {
+  return del<Graph>(`/graphs/${graphId}`);
+}
+
 export async function createNode(input: {
   graphId: string;
   layout: Required<Pick<NodeLayout, 'x' | 'y'>> & Pick<NodeLayout, 'width' | 'height'>;

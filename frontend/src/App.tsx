@@ -46,6 +46,7 @@ import {
   createNode,
   createProject,
   deleteEdge,
+  deleteGraph,
   deleteNode,
   getAiRunDefaults,
   loadGraphBundle,
@@ -265,6 +266,7 @@ function KnowFlowCanvas() {
   const [maximizedNodeId, setMaximizedNodeId] = useState<string | null>(null);
   const [canvasViewportSize, setCanvasViewportSize] = useState({ height: 0, width: 0 });
   const [pendingDeleteNodeIds, setPendingDeleteNodeIds] = useState<string[]>([]);
+  const [pendingDeleteGraphId, setPendingDeleteGraphId] = useState<string | null>(null);
   const [pendingFocusNodeId, setPendingFocusNodeId] = useState<string | null>(null);
   const [visibleBranchHighlightIdsByNodeId, setVisibleBranchHighlightIdsByNodeId] = useState<
     Record<string, string[]>
@@ -479,6 +481,39 @@ function KnowFlowCanvas() {
       setIsSaving(false);
     }
   }, [bundle, clearCanvasFocus, refresh]);
+
+  const onDeleteGraphRequested = useCallback(() => {
+    if (!bundle) {
+      return;
+    }
+
+    setPendingDeleteGraphId(bundle.activeGraph.id);
+  }, [bundle]);
+
+  const onConfirmGraphDelete = useCallback(async () => {
+    if (!bundle || !pendingDeleteGraphId) {
+      return;
+    }
+
+    const deletedGraphId = pendingDeleteGraphId;
+    const remainingGraphs = bundle.graphs.filter((graph) => graph.id !== deletedGraphId);
+
+    setPendingDeleteGraphId(null);
+    setIsSaving(true);
+    setError(null);
+    try {
+      await deleteGraph(deletedGraphId);
+      clearCanvasFocus();
+      await refresh({
+        graphId: remainingGraphs[0]?.id ?? null,
+        projectId: bundle.activeProject.id,
+      });
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Unable to delete graph');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [bundle, clearCanvasFocus, pendingDeleteGraphId, refresh]);
 
   const saveProjectTitle = useCallback(async () => {
     if (!bundle) {
@@ -1118,15 +1153,27 @@ function KnowFlowCanvas() {
               placeholder={graphTitle}
               value={graphTitleDraft}
             />
-            <button
-              className="secondary-button"
-              disabled={!bundle || isSaving || isLoading}
-              onClick={() => void onCreateGraph()}
-              type="button"
-            >
-              <Plus size={15} />
-              Graph
-            </button>
+            <div className="workspace-manager__button-group">
+              <button
+                className="secondary-button"
+                disabled={!bundle || isSaving || isLoading}
+                onClick={() => void onCreateGraph()}
+                type="button"
+              >
+                <Plus size={15} />
+                Graph
+              </button>
+              <button
+                aria-label={`Delete graph ${graphTitle}`}
+                className="icon-button icon-button--danger icon-button--compact"
+                disabled={!bundle || isSaving || isLoading}
+                onClick={onDeleteGraphRequested}
+                title="Delete current graph"
+                type="button"
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
           </div>
           <div className="workspace-manager__row workspace-manager__row--description">
             <span className="workspace-manager__label">Details</span>
@@ -1145,7 +1192,7 @@ function KnowFlowCanvas() {
         <div className="topbar__actions">
           {aiRunDefaults ? (
             <span className="ai-status-pill" title={`Backend AI defaults: ${aiRunDefaults.provider} / ${aiRunDefaults.model}`}>
-              AI: {aiRunDefaults.provider} / {aiRunDefaults.model}
+              {aiRunDefaults.provider} / {aiRunDefaults.model}
             </span>
           ) : null}
           <span className="status-pill">{statusText}</span>
@@ -1220,7 +1267,68 @@ function KnowFlowCanvas() {
           onConfirm={() => void onConfirmNodeDelete()}
         />
       ) : null}
+      {pendingDeleteGraphId && bundle ? (
+        <DeleteGraphConfirmDialog
+          graphTitle={bundle.activeGraph.title}
+          isDeleting={isSaving}
+          isLastGraph={bundle.graphs.length <= 1}
+          onCancel={() => setPendingDeleteGraphId(null)}
+          onConfirm={() => void onConfirmGraphDelete()}
+        />
+      ) : null}
     </main>
+  );
+}
+
+function DeleteGraphConfirmDialog({
+  graphTitle,
+  isDeleting,
+  isLastGraph,
+  onCancel,
+  onConfirm,
+}: {
+  graphTitle: string;
+  isDeleting: boolean;
+  isLastGraph: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const description = isLastGraph
+    ? `This will delete "${graphTitle}" and all of its nodes and edges. Because it is the last graph in this project, KnowFlow will create a blank replacement graph afterward.`
+    : `This will delete "${graphTitle}" and all of its nodes, edges, messages, highlights, and runs.`;
+
+  return (
+    <div className="confirm-layer" role="presentation" onMouseDown={onCancel}>
+      <section
+        aria-describedby="delete-graph-confirm-description"
+        aria-modal="true"
+        className="confirm-dialog"
+        onMouseDown={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <span className="confirm-dialog__icon" aria-hidden="true">
+          <AlertTriangle size={20} />
+        </span>
+        <div className="confirm-dialog__copy">
+          <h2>Delete graph?</h2>
+          <p id="delete-graph-confirm-description">{description}</p>
+        </div>
+        <div className="confirm-dialog__actions">
+          <button className="confirm-dialog__button" disabled={isDeleting} onClick={onCancel} type="button">
+            Cancel
+          </button>
+          <button
+            className="confirm-dialog__button confirm-dialog__button--danger"
+            disabled={isDeleting}
+            onClick={onConfirm}
+            type="button"
+          >
+            <Trash2 size={15} />
+            Delete graph
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 
