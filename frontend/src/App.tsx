@@ -417,8 +417,9 @@ function KnowFlowCanvas() {
       clearCanvasFocus();
       setWorkspaceSelection(nextSelection);
       persistWorkspaceSelection(nextSelection);
+      void refresh(nextSelection);
     },
-    [clearCanvasFocus],
+    [clearCanvasFocus, refresh],
   );
 
   const onWorkspaceGraphChanged = useCallback(
@@ -434,8 +435,9 @@ function KnowFlowCanvas() {
       clearCanvasFocus();
       setWorkspaceSelection(nextSelection);
       persistWorkspaceSelection(nextSelection);
+      void refresh(nextSelection);
     },
-    [bundle, clearCanvasFocus],
+    [bundle, clearCanvasFocus, refresh],
   );
 
   const onCreateProject = useCallback(async () => {
