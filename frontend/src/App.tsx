@@ -1118,15 +1118,18 @@ function KnowFlowCanvas() {
               placeholder={projectTitle}
               value={projectTitleDraft}
             />
-            <button
-              className="secondary-button"
-              disabled={isSaving || isLoading}
-              onClick={() => void onCreateProject()}
-              type="button"
-            >
-              <Plus size={15} />
-              Project
-            </button>
+            <div className="workspace-manager__button-group">
+              <button
+                className="secondary-button"
+                disabled={isSaving || isLoading}
+                onClick={() => void onCreateProject()}
+                type="button"
+              >
+                <Plus size={15} />
+                Project
+              </button>
+              <span className="workspace-manager__action-spacer" aria-hidden="true" />
+            </div>
           </div>
           <div className="workspace-manager__row">
             <span className="workspace-manager__label">Graph</span>
@@ -1187,15 +1190,17 @@ function KnowFlowCanvas() {
               placeholder="Project description"
               value={projectDescriptionDraft}
             />
+            <div className="workspace-manager__meta" aria-label="Workspace status">
+              {aiRunDefaults ? (
+                <span className="ai-status-pill" title={`Backend AI defaults: ${aiRunDefaults.provider} / ${aiRunDefaults.model}`}>
+                  {aiRunDefaults.provider} / {aiRunDefaults.model}
+                </span>
+              ) : null}
+              <span className="status-pill">{statusText}</span>
+            </div>
           </div>
         </div>
         <div className="topbar__actions">
-          {aiRunDefaults ? (
-            <span className="ai-status-pill" title={`Backend AI defaults: ${aiRunDefaults.provider} / ${aiRunDefaults.model}`}>
-              {aiRunDefaults.provider} / {aiRunDefaults.model}
-            </span>
-          ) : null}
-          <span className="status-pill">{statusText}</span>
           <button aria-label="Refresh graph" className="icon-button" onClick={() => void refresh()} type="button">
             <RefreshCw size={18} />
           </button>

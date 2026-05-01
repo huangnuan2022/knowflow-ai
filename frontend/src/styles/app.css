@@ -551,13 +551,13 @@ button {
   align-items: center;
   display: grid;
   gap: 8px;
-  grid-template-columns: 72px minmax(160px, 260px) minmax(220px, 1fr) auto;
+  grid-template-columns: 72px minmax(160px, 260px) minmax(220px, 1fr) 146px;
   min-width: 0;
 }
 
 .workspace-manager__row--description {
-  grid-template-columns: 72px minmax(0, 1fr);
-  max-width: 720px;
+  grid-template-columns: 72px minmax(280px, 720px) minmax(0, 1fr);
+  max-width: none;
 }
 
 .workspace-manager__label {
@@ -612,8 +612,27 @@ button {
 
 .workspace-manager__button-group {
   align-items: center;
-  display: inline-flex;
+  display: grid;
   gap: 6px;
+  grid-template-columns: minmax(0, 108px) 32px;
+  min-width: 146px;
+}
+
+.workspace-manager__button-group .secondary-button {
+  width: 100%;
+}
+
+.workspace-manager__action-spacer {
+  display: block;
+  height: 32px;
+  width: 32px;
+}
+
+.workspace-manager__meta {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+  justify-content: flex-end;
   min-width: 0;
 }
 
@@ -629,6 +648,15 @@ button {
 
   .workspace-manager {
     max-width: none;
+  }
+
+  .workspace-manager__row--description {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .workspace-manager__meta {
+    grid-column: 2;
+    justify-content: flex-start;
   }
 }
 
