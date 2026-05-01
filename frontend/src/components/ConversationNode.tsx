@@ -70,6 +70,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
   const [isSavingDetails, setIsSavingDetails] = useState(false);
   const [isContextExpanded, setIsContextExpanded] = useState(false);
   const [activeBranchHighlightId, setActiveBranchHighlightId] = useState<string | null>(null);
+  const [openHighlightMenu, setOpenHighlightMenu] = useState<HighlightMenuState | null>(null);
   const [highlightAnchorStates, setHighlightAnchorStates] = useState<Record<string, HighlightAnchorState>>({});
   const [revealedHighlightId, setRevealedHighlightId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -145,6 +146,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
       return;
     }
 
+    let revealClearTimeoutId: number | null = null;
     const timeoutId = window.setTimeout(() => {
       const highlightId = nodeData.revealHighlightId ?? null;
       const highlightElement = nodeRef.current?.querySelector<HTMLElement>(
@@ -153,7 +155,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
       highlightElement?.scrollIntoView({ block: 'center', inline: 'nearest' });
       setRevealedHighlightId(highlightId);
       setActiveBranchHighlightId(highlightId);
-      window.setTimeout(() => {
+      revealClearTimeoutId = window.setTimeout(() => {
         setRevealedHighlightId(null);
         setActiveBranchHighlightId((currentHighlightId) =>
           currentHighlightId === highlightId ? null : currentHighlightId,
@@ -161,19 +163,33 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
       }, 1800);
     }, 80);
 
-    return () => window.clearTimeout(timeoutId);
+    return () => {
+      window.clearTimeout(timeoutId);
+      if (revealClearTimeoutId !== null) {
+        window.clearTimeout(revealClearTimeoutId);
+      }
+    };
   }, [isExpanded, nodeData.revealHighlightId, nodeData.revealHighlightRequestId]);
 
   useEffect(() => {
     if (!isExpanded) {
       setActiveBranchHighlightId(null);
-      nodeData.onVisibleBranchHighlightsChanged?.(id, []);
+      setOpenHighlightMenu(null);
     }
-  }, [id, isExpanded, nodeData]);
+  }, [isExpanded]);
 
   const refreshHighlightAnchorStates = useCallback(() => {
     if (!isExpanded || !nodeRef.current || !threadRef.current) {
       setHighlightAnchorStates({});
+      return;
+    }
+
+    const trackedHighlightId = activeBranchHighlightId ?? revealedHighlightId;
+    if (!trackedHighlightId) {
+      setHighlightAnchorStates((currentStates) =>
+        Object.keys(currentStates).length === 0 ? currentStates : {},
+      );
+      nodeData.onVisibleBranchHighlightsChanged?.(id, []);
       return;
     }
 
@@ -183,7 +199,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
 
     nodeRef.current.querySelectorAll<HTMLElement>('[data-highlight-id]').forEach((element) => {
       const highlightId = element.dataset.highlightId;
-      if (!highlightId) {
+      if (!highlightId || highlightId !== trackedHighlightId) {
         return;
       }
 
@@ -220,13 +236,40 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
       .filter(([, state]) => state.visibility === 'visible')
       .map(([highlightId]) => highlightId);
     const activeVisibleHighlightIds =
-      activeBranchHighlightId && visibleHighlightIds.includes(activeBranchHighlightId) ? [activeBranchHighlightId] : [];
+      trackedHighlightId && visibleHighlightIds.includes(trackedHighlightId) ? [trackedHighlightId] : [];
     nodeData.onVisibleBranchHighlightsChanged?.(id, activeVisibleHighlightIds);
-  }, [activeBranchHighlightId, id, isExpanded, nodeData]);
+  }, [activeBranchHighlightId, id, isExpanded, nodeData, revealedHighlightId]);
 
   useEffect(() => {
     refreshHighlightAnchorStates();
   }, [activeBranchHighlightId, highlightHandleKey, isContextExpanded, refreshHighlightAnchorStates, sortedMessages]);
+
+  const onHighlightMenuChange = useCallback((menu: HighlightMenuState | null) => {
+    setOpenHighlightMenu(menu);
+    setActiveBranchHighlightId(menu?.id ?? null);
+  }, []);
+
+  useEffect(() => {
+    if (!openHighlightMenu) {
+      return;
+    }
+
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      if (target.closest('.highlight-branch-menu') || target.closest('[data-highlight-id]')) {
+        return;
+      }
+
+      onHighlightMenuChange(null);
+    };
+
+    document.addEventListener('pointerdown', onPointerDown, true);
+    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+  }, [onHighlightMenuChange, openHighlightMenu]);
 
   useEffect(() => {
     const anchor = nodeData.readerSyncAnchor;
@@ -419,6 +462,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
       });
 
       setSelectionDraft(null);
+      onHighlightMenuChange(null);
       window.getSelection()?.removeAllRanges();
       await nodeData.onBranchCreated?.(result.childNode.id, id);
     } catch (branchError) {
@@ -426,7 +470,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
     } finally {
       setIsBranching(false);
     }
-  }, [id, isBranching, nodeData, selectionDraft]);
+  }, [id, isBranching, nodeData, onHighlightMenuChange, selectionDraft]);
 
   const onBranchFromHighlight = useCallback(
     async (highlight: Highlight) => {
@@ -453,6 +497,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
         });
 
         setSelectionDraft(null);
+        onHighlightMenuChange(null);
         window.getSelection()?.removeAllRanges();
         await nodeData.onBranchCreated?.(result.childNode.id, id);
       } catch (branchError) {
@@ -461,7 +506,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
         setIsBranching(false);
       }
     },
-    [id, isBranching, nodeData],
+    [id, isBranching, nodeData, onHighlightMenuChange],
   );
 
   const onDelete = useCallback(
@@ -497,6 +542,10 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
   );
 
   const onScrollableContentScroll = useCallback(() => {
+    if (openHighlightMenu) {
+      onHighlightMenuChange(null);
+    }
+
     if (scrollFrameRef.current !== null) {
       return;
     }
@@ -504,7 +553,9 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
     scrollFrameRef.current = window.requestAnimationFrame(() => {
       scrollFrameRef.current = null;
       refreshHighlightAnchorStates();
-      updateNodeInternals(id);
+      if (activeBranchHighlightId || revealedHighlightId) {
+        updateNodeInternals(id);
+      }
 
       if (isExpanded && threadRef.current && !isApplyingReaderSyncRef.current) {
         const anchor = findReaderSyncAnchor(
@@ -523,7 +574,17 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
         }
       }
     });
-  }, [id, isExpanded, nodeData, refreshHighlightAnchorStates, updateNodeInternals]);
+  }, [
+    activeBranchHighlightId,
+    id,
+    isExpanded,
+    nodeData,
+    onHighlightMenuChange,
+    openHighlightMenu,
+    refreshHighlightAnchorStates,
+    revealedHighlightId,
+    updateNodeInternals,
+  ]);
 
   return (
     <article
@@ -683,7 +744,8 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
                   onAssistantSelection={onAssistantSelection}
                   onBranch={onBranch}
                   onBranchFromHighlight={onBranchFromHighlight}
-                  onHighlightFocusChange={setActiveBranchHighlightId}
+                  openHighlightMenu={openHighlightMenu}
+                  onHighlightMenuChange={onHighlightMenuChange}
                   onBranchTargetSelected={nodeData.onBranchTargetSelected}
                   highlightAnchorStates={highlightAnchorStates}
                   revealedHighlightId={revealedHighlightId}
@@ -981,7 +1043,8 @@ function CanvasMessage({
   onAssistantSelection,
   onBranch,
   onBranchFromHighlight,
-  onHighlightFocusChange,
+  openHighlightMenu,
+  onHighlightMenuChange,
   onBranchTargetSelected,
   revealedHighlightId,
   selectionDraft,
@@ -995,7 +1058,8 @@ function CanvasMessage({
   onAssistantSelection: (message: Message, element: HTMLElement) => void;
   onBranch: () => void;
   onBranchFromHighlight: (highlight: Highlight) => void;
-  onHighlightFocusChange: (highlightId: string | null) => void;
+  openHighlightMenu: HighlightMenuState | null;
+  onHighlightMenuChange: (menu: HighlightMenuState | null) => void;
   onBranchTargetSelected?: (targetNodeId: string, sourceNodeId: string) => void;
   revealedHighlightId?: string | null;
   selectionDraft: InlineSelectionDraft | null;
@@ -1042,7 +1106,8 @@ function CanvasMessage({
             highlights={isAssistant ? branchBackedHighlights : []}
             isBranching={isBranching}
             onBranchFromHighlight={onBranchFromHighlight}
-            onHighlightFocusChange={onHighlightFocusChange}
+            openHighlightMenu={openHighlightMenu}
+            onHighlightMenuChange={onHighlightMenuChange}
             onBranchTargetSelected={onBranchTargetSelected}
             revealedHighlightId={revealedHighlightId}
             sourceNodeId={sourceNodeId}
@@ -1083,7 +1148,8 @@ function HighlightedContent({
   highlights,
   isBranching,
   onBranchFromHighlight,
-  onHighlightFocusChange,
+  openHighlightMenu,
+  onHighlightMenuChange,
   onBranchTargetSelected,
   revealedHighlightId,
   sourceNodeId,
@@ -1096,13 +1162,13 @@ function HighlightedContent({
   highlights: Highlight[];
   isBranching: boolean;
   onBranchFromHighlight: (highlight: Highlight) => void;
-  onHighlightFocusChange: (highlightId: string | null) => void;
+  openHighlightMenu: HighlightMenuState | null;
+  onHighlightMenuChange: (menu: HighlightMenuState | null) => void;
   onBranchTargetSelected?: (targetNodeId: string, sourceNodeId: string) => void;
   revealedHighlightId?: string | null;
   sourceNodeId: string;
   withHandles: boolean;
 }) {
-  const [openHighlightMenu, setOpenHighlightMenu] = useState<HighlightMenuState | null>(null);
   const ranges = normalizeHighlights(content, highlights, draftRange);
   if (ranges.length === 0) {
     return <>{content}</>;
@@ -1143,11 +1209,9 @@ function HighlightedContent({
               ? (event) => {
                   event.stopPropagation();
                   const position = menuPositionForRect(event.currentTarget.getBoundingClientRect());
-                  setOpenHighlightMenu((currentMenu) => {
-                    const nextMenu = currentMenu?.id === range.id ? null : { id: range.id, ...position };
-                    onHighlightFocusChange(nextMenu?.id ?? null);
-                    return nextMenu;
-                  });
+                  onHighlightMenuChange(
+                    openHighlightMenu?.id === range.id ? null : { id: range.id, ...position },
+                  );
                 }
               : undefined
           }
@@ -1158,16 +1222,13 @@ function HighlightedContent({
                     event.preventDefault();
                     event.stopPropagation();
                     const position = menuPositionForRect(event.currentTarget.getBoundingClientRect());
-                    setOpenHighlightMenu((currentMenu) => {
-                      const nextMenu = currentMenu?.id === range.id ? null : { id: range.id, ...position };
-                      onHighlightFocusChange(nextMenu?.id ?? null);
-                      return nextMenu;
-                    });
+                    onHighlightMenuChange(
+                      openHighlightMenu?.id === range.id ? null : { id: range.id, ...position },
+                    );
                   }
                   if (event.key === 'Escape') {
                     event.stopPropagation();
-                    setOpenHighlightMenu(null);
-                    onHighlightFocusChange(null);
+                    onHighlightMenuChange(null);
                   }
                 }
               : undefined
@@ -1196,17 +1257,14 @@ function HighlightedContent({
             color={range.color}
             isBranching={isBranching}
             onBranchFromHighlight={() => {
-              setOpenHighlightMenu(null);
-              onHighlightFocusChange(null);
+              onHighlightMenuChange(null);
               onBranchFromHighlight(range);
             }}
             onClose={() => {
-              setOpenHighlightMenu(null);
-              onHighlightFocusChange(null);
+              onHighlightMenuChange(null);
             }}
             onJumpToBranch={(targetNodeId) => {
-              setOpenHighlightMenu(null);
-              onHighlightFocusChange(null);
+              onHighlightMenuChange(null);
               onBranchTargetSelected?.(targetNodeId, sourceNodeId);
             }}
             position={openHighlightMenu}
