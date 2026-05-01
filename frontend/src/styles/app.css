@@ -1837,66 +1837,108 @@ button {
 }
 
 .node-handle--manual {
-  background: #64748b;
-  border: 2px solid #ffffff;
-  height: 16px;
-  opacity: 0.42;
-  width: 16px;
+  background: transparent;
+  border: 0;
+  height: 32px;
+  opacity: 0.38;
+  width: 32px;
   z-index: 18;
 }
 
 .node-handle--manual-target {
   background: transparent;
   border-color: transparent;
-  height: 30px;
+  height: 42px;
   opacity: 0;
-  width: 30px;
+  width: 42px;
   z-index: 17;
+}
+
+.node-handle--manual-source {
+  cursor: crosshair;
+}
+
+.node-handle--manual-source::before,
+.node-handle--manual-source::after {
+  content: "";
+  left: 50%;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.node-handle--manual-source::before {
+  background: #ffffff;
+  border: 2px solid #64748b;
+  border-radius: 999px;
+  box-shadow: 0 6px 14px rgba(15, 23, 42, 0.16);
+  height: 18px;
+  width: 18px;
+}
+
+.node-handle--manual-source::after {
+  background:
+    linear-gradient(#475569, #475569) center / 10px 2px no-repeat,
+    linear-gradient(#475569, #475569) center / 2px 10px no-repeat;
+  height: 18px;
+  width: 18px;
 }
 
 .node-handle--manual-source.node-handle--manual-top {
   left: 50%;
-  top: -10px;
+  top: -17px;
 }
 
 .node-handle--manual-target.node-handle--manual-top {
   left: 50%;
-  top: -15px;
+  top: -21px;
 }
 
 .node-handle--manual-source.node-handle--manual-right {
-  right: -10px;
+  right: -17px;
   top: 50%;
 }
 
 .node-handle--manual-target.node-handle--manual-right {
-  right: -15px;
+  right: -21px;
   top: 50%;
 }
 
 .node-handle--manual-source.node-handle--manual-bottom {
-  bottom: -10px;
+  bottom: -17px;
   left: 50%;
 }
 
 .node-handle--manual-target.node-handle--manual-bottom {
-  bottom: -15px;
+  bottom: -21px;
   left: 50%;
 }
 
 .node-handle--manual-source.node-handle--manual-left {
-  left: -10px;
+  left: -17px;
   top: 50%;
 }
 
 .node-handle--manual-target.node-handle--manual-left {
-  left: -15px;
+  left: -21px;
   top: 50%;
 }
 
-.conversation-node:hover .node-handle--manual,
-.node-handle--manual:hover {
+.conversation-node:hover .node-handle--manual-source,
+.conversation-node.is-flow-selected .node-handle--manual-source,
+.node-handle--manual-source:hover {
   opacity: 1;
+}
+
+.node-handle--manual-source:hover::before {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 5px rgba(37, 99, 235, 0.12), 0 8px 18px rgba(15, 23, 42, 0.2);
+}
+
+.node-handle--manual-source:hover::after {
+  background:
+    linear-gradient(#2563eb, #2563eb) center / 10px 2px no-repeat,
+    linear-gradient(#2563eb, #2563eb) center / 2px 10px no-repeat;
 }
 
 .node-handle--highlight {
