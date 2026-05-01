@@ -84,6 +84,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSavingDetails, setIsSavingDetails] = useState(false);
   const [isContextExpanded, setIsContextExpanded] = useState(false);
+  const [isLearningPathExpanded, setIsLearningPathExpanded] = useState(false);
   const [activeBranchHighlightId, setActiveBranchHighlightId] = useState<string | null>(null);
   const [openHighlightMenu, setOpenHighlightMenu] = useState<HighlightMenuState | null>(null);
   const [highlightAnchorStates, setHighlightAnchorStates] = useState<Record<string, HighlightAnchorState>>({});
@@ -118,6 +119,22 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
         .join('|'),
     [highlightAnchorStates],
   );
+  const visibleLearningPath = useMemo(() => {
+    const learningPath = nodeData.branchContext?.learningPath ?? [];
+    if (learningPath.length <= 4 || isLearningPathExpanded) {
+      return learningPath.map((pathItem) => ({ ...pathItem, kind: 'node' as const }));
+    }
+
+    return [
+      { ...learningPath[0], kind: 'node' as const },
+      {
+        kind: 'expand' as const,
+        label: `${learningPath.length - 3} more`,
+        nodeId: '',
+      },
+      ...learningPath.slice(-2).map((pathItem) => ({ ...pathItem, kind: 'node' as const })),
+    ];
+  }, [isLearningPathExpanded, nodeData.branchContext?.learningPath]);
 
   useEffect(() => {
     updateNodeInternals(id);
@@ -133,6 +150,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
 
   useEffect(() => {
     setIsContextExpanded(false);
+    setIsLearningPathExpanded(false);
   }, [id, nodeData.branchContext?.text]);
 
   useEffect(
@@ -778,19 +796,41 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
               {isContextExpanded ? (
                 <div className="conversation-node__ai-context">
                   <div className="conversation-node__ai-context-item">
-                    <span>Highlight source</span>
-                    <p>{nodeData.branchContext.sourceText}</p>
-                  </div>
-                  <div className="conversation-node__ai-context-item">
                     <span>Learning path</span>
                     <div
-                      aria-label={nodeData.branchContext.learningPath.join(' to ')}
+                      aria-label={nodeData.branchContext.learningPath.map((pathItem) => pathItem.label).join(' to ')}
                       className="conversation-node__learning-path"
                     >
-                      {nodeData.branchContext.learningPath.map((pathItem, index) => (
-                        <Fragment key={`${pathItem}-${index}`}>
+                      {visibleLearningPath.map((pathItem, index) => (
+                        <Fragment key={`${pathItem.kind}-${pathItem.nodeId}-${pathItem.label}-${index}`}>
                           {index > 0 ? <ChevronRight aria-hidden="true" size={13} /> : null}
-                          <span>{pathItem}</span>
+                          {pathItem.kind === 'expand' ? (
+                            <button
+                              className="conversation-node__learning-path-chip conversation-node__learning-path-chip--more nodrag nopan"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setIsLearningPathExpanded(true);
+                              }}
+                              onPointerDown={(event) => event.stopPropagation()}
+                              title="Show the full learning path"
+                              type="button"
+                            >
+                              {pathItem.label}
+                            </button>
+                          ) : (
+                            <button
+                              className="conversation-node__learning-path-chip nodrag nopan"
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                nodeData.onBranchTargetSelected?.(pathItem.nodeId, id);
+                              }}
+                              onPointerDown={(event) => event.stopPropagation()}
+                              title={`Go to ${pathItem.label}`}
+                              type="button"
+                            >
+                              {pathItem.label}
+                            </button>
+                          )}
                         </Fragment>
                       ))}
                     </div>

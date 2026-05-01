@@ -1311,15 +1311,33 @@ button {
   flex: 0 0 auto;
 }
 
-.conversation-node__learning-path span {
+.conversation-node__learning-path-chip {
   background: rgb(255 255 255 / 0.7);
   border: 1px solid color-mix(in srgb, var(--node-accent-border, #c7d2fe) 65%, transparent);
   border-radius: 999px;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
   max-width: 100%;
   overflow: hidden;
   padding: 3px 7px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.conversation-node__learning-path-chip:hover,
+.conversation-node__learning-path-chip:focus {
+  background: color-mix(in srgb, var(--node-accent-border, #c7d2fe) 18%, #ffffff);
+  outline: none;
+}
+
+.conversation-node__learning-path-chip:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--node-accent-border, #c7d2fe) 35%, transparent);
+}
+
+.conversation-node__learning-path-chip--more {
+  background: color-mix(in srgb, var(--node-accent-border, #c7d2fe) 14%, #ffffff);
+  border-style: dashed;
 }
 
 .conversation-node.is-expanded .conversation-node__context-source-summary > span,

@@ -21,10 +21,15 @@ export type BranchTargetPreview = {
   title: string;
 };
 
+export type BranchLearningPathItem = {
+  label: string;
+  nodeId: string;
+};
+
 export type BranchContextPreview = {
   color?: BranchColor;
   highlightId?: string;
-  learningPath: string[];
+  learningPath: BranchLearningPathItem[];
   sourceNodeId: string;
   sourceText: string;
   text: string;
@@ -500,7 +505,7 @@ function buildBranchLearningPath(edges: DomainEdge[], nodes: DomainNode[], nodeI
       .filter((edge) => edge.type === 'BRANCH' && edge.label)
       .map((edge) => [edge.targetNodeId, edge]),
   );
-  const branchLabels: string[] = [];
+  const branchPathItems: BranchLearningPathItem[] = [];
   const visitedNodeIds = new Set<string>();
   let currentNodeId = nodeId;
 
@@ -511,12 +516,15 @@ function buildBranchLearningPath(edges: DomainEdge[], nodes: DomainNode[], nodeI
       break;
     }
 
-    branchLabels.unshift(truncateText(inboundBranch.label, 72));
+    branchPathItems.unshift({
+      label: truncateText(inboundBranch.label, 72),
+      nodeId: currentNodeId,
+    });
     currentNodeId = inboundBranch.sourceNodeId;
   }
 
   const rootTitle = nodeTitlesById.get(currentNodeId);
-  return rootTitle ? [rootTitle, ...branchLabels] : branchLabels;
+  return rootTitle ? [{ label: rootTitle, nodeId: currentNodeId }, ...branchPathItems] : branchPathItems;
 }
 
 export function colorForHighlightId(highlightId: string): BranchColor {
