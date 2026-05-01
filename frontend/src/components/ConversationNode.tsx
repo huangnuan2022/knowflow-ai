@@ -69,6 +69,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSavingDetails, setIsSavingDetails] = useState(false);
   const [isContextExpanded, setIsContextExpanded] = useState(false);
+  const [activeBranchHighlightId, setActiveBranchHighlightId] = useState<string | null>(null);
   const [highlightAnchorStates, setHighlightAnchorStates] = useState<Record<string, HighlightAnchorState>>({});
   const [revealedHighlightId, setRevealedHighlightId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -145,16 +146,30 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
     }
 
     const timeoutId = window.setTimeout(() => {
+      const highlightId = nodeData.revealHighlightId ?? null;
       const highlightElement = nodeRef.current?.querySelector<HTMLElement>(
-        `[data-highlight-id="${nodeData.revealHighlightId}"]`,
+        `[data-highlight-id="${highlightId}"]`,
       );
       highlightElement?.scrollIntoView({ block: 'center', inline: 'nearest' });
-      setRevealedHighlightId(nodeData.revealHighlightId ?? null);
-      window.setTimeout(() => setRevealedHighlightId(null), 1400);
+      setRevealedHighlightId(highlightId);
+      setActiveBranchHighlightId(highlightId);
+      window.setTimeout(() => {
+        setRevealedHighlightId(null);
+        setActiveBranchHighlightId((currentHighlightId) =>
+          currentHighlightId === highlightId ? null : currentHighlightId,
+        );
+      }, 1800);
     }, 80);
 
     return () => window.clearTimeout(timeoutId);
   }, [isExpanded, nodeData.revealHighlightId, nodeData.revealHighlightRequestId]);
+
+  useEffect(() => {
+    if (!isExpanded) {
+      setActiveBranchHighlightId(null);
+      nodeData.onVisibleBranchHighlightsChanged?.(id, []);
+    }
+  }, [id, isExpanded, nodeData]);
 
   const refreshHighlightAnchorStates = useCallback(() => {
     if (!isExpanded || !nodeRef.current || !threadRef.current) {
@@ -201,17 +216,17 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
     setHighlightAnchorStates((currentStates) =>
       areHighlightAnchorStatesEqual(currentStates, nextStates) ? currentStates : nextStates,
     );
-    nodeData.onVisibleBranchHighlightsChanged?.(
-      id,
-      Object.entries(nextStates)
-        .filter(([, state]) => state.visibility === 'visible')
-        .map(([highlightId]) => highlightId),
-    );
-  }, [id, isExpanded, nodeData]);
+    const visibleHighlightIds = Object.entries(nextStates)
+      .filter(([, state]) => state.visibility === 'visible')
+      .map(([highlightId]) => highlightId);
+    const activeVisibleHighlightIds =
+      activeBranchHighlightId && visibleHighlightIds.includes(activeBranchHighlightId) ? [activeBranchHighlightId] : [];
+    nodeData.onVisibleBranchHighlightsChanged?.(id, activeVisibleHighlightIds);
+  }, [activeBranchHighlightId, id, isExpanded, nodeData]);
 
   useEffect(() => {
     refreshHighlightAnchorStates();
-  }, [highlightHandleKey, isContextExpanded, refreshHighlightAnchorStates, sortedMessages]);
+  }, [activeBranchHighlightId, highlightHandleKey, isContextExpanded, refreshHighlightAnchorStates, sortedMessages]);
 
   useEffect(() => {
     const anchor = nodeData.readerSyncAnchor;
@@ -668,6 +683,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
                   onAssistantSelection={onAssistantSelection}
                   onBranch={onBranch}
                   onBranchFromHighlight={onBranchFromHighlight}
+                  onHighlightFocusChange={setActiveBranchHighlightId}
                   onBranchTargetSelected={nodeData.onBranchTargetSelected}
                   highlightAnchorStates={highlightAnchorStates}
                   revealedHighlightId={revealedHighlightId}
@@ -965,6 +981,7 @@ function CanvasMessage({
   onAssistantSelection,
   onBranch,
   onBranchFromHighlight,
+  onHighlightFocusChange,
   onBranchTargetSelected,
   revealedHighlightId,
   selectionDraft,
@@ -978,6 +995,7 @@ function CanvasMessage({
   onAssistantSelection: (message: Message, element: HTMLElement) => void;
   onBranch: () => void;
   onBranchFromHighlight: (highlight: Highlight) => void;
+  onHighlightFocusChange: (highlightId: string | null) => void;
   onBranchTargetSelected?: (targetNodeId: string, sourceNodeId: string) => void;
   revealedHighlightId?: string | null;
   selectionDraft: InlineSelectionDraft | null;
@@ -1024,6 +1042,7 @@ function CanvasMessage({
             highlights={isAssistant ? branchBackedHighlights : []}
             isBranching={isBranching}
             onBranchFromHighlight={onBranchFromHighlight}
+            onHighlightFocusChange={onHighlightFocusChange}
             onBranchTargetSelected={onBranchTargetSelected}
             revealedHighlightId={revealedHighlightId}
             sourceNodeId={sourceNodeId}
@@ -1064,6 +1083,7 @@ function HighlightedContent({
   highlights,
   isBranching,
   onBranchFromHighlight,
+  onHighlightFocusChange,
   onBranchTargetSelected,
   revealedHighlightId,
   sourceNodeId,
@@ -1076,6 +1096,7 @@ function HighlightedContent({
   highlights: Highlight[];
   isBranching: boolean;
   onBranchFromHighlight: (highlight: Highlight) => void;
+  onHighlightFocusChange: (highlightId: string | null) => void;
   onBranchTargetSelected?: (targetNodeId: string, sourceNodeId: string) => void;
   revealedHighlightId?: string | null;
   sourceNodeId: string;
@@ -1122,9 +1143,11 @@ function HighlightedContent({
               ? (event) => {
                   event.stopPropagation();
                   const position = menuPositionForRect(event.currentTarget.getBoundingClientRect());
-                  setOpenHighlightMenu((currentMenu) =>
-                    currentMenu?.id === range.id ? null : { id: range.id, ...position },
-                  );
+                  setOpenHighlightMenu((currentMenu) => {
+                    const nextMenu = currentMenu?.id === range.id ? null : { id: range.id, ...position };
+                    onHighlightFocusChange(nextMenu?.id ?? null);
+                    return nextMenu;
+                  });
                 }
               : undefined
           }
@@ -1135,13 +1158,16 @@ function HighlightedContent({
                     event.preventDefault();
                     event.stopPropagation();
                     const position = menuPositionForRect(event.currentTarget.getBoundingClientRect());
-                    setOpenHighlightMenu((currentMenu) =>
-                      currentMenu?.id === range.id ? null : { id: range.id, ...position },
-                    );
+                    setOpenHighlightMenu((currentMenu) => {
+                      const nextMenu = currentMenu?.id === range.id ? null : { id: range.id, ...position };
+                      onHighlightFocusChange(nextMenu?.id ?? null);
+                      return nextMenu;
+                    });
                   }
                   if (event.key === 'Escape') {
                     event.stopPropagation();
                     setOpenHighlightMenu(null);
+                    onHighlightFocusChange(null);
                   }
                 }
               : undefined
@@ -1171,11 +1197,16 @@ function HighlightedContent({
             isBranching={isBranching}
             onBranchFromHighlight={() => {
               setOpenHighlightMenu(null);
+              onHighlightFocusChange(null);
               onBranchFromHighlight(range);
             }}
-            onClose={() => setOpenHighlightMenu(null)}
+            onClose={() => {
+              setOpenHighlightMenu(null);
+              onHighlightFocusChange(null);
+            }}
             onJumpToBranch={(targetNodeId) => {
               setOpenHighlightMenu(null);
+              onHighlightFocusChange(null);
               onBranchTargetSelected?.(targetNodeId, sourceNodeId);
             }}
             position={openHighlightMenu}
