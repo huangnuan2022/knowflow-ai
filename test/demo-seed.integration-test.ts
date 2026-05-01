@@ -7,9 +7,9 @@ import { AppModule } from '../src/app.module';
 import {
   SYSTEM_DESIGN_DEMO_BRANCHES,
   SYSTEM_DESIGN_DEMO_GRAPH_TITLE,
+  SYSTEM_DESIGN_DEMO_NODES,
   SYSTEM_DESIGN_DEMO_PROJECT_TITLE,
-  SYSTEM_DESIGN_DEMO_ROOT_TITLE,
-  SYSTEM_DESIGN_DEMO_USER_PROMPT,
+  SYSTEM_DESIGN_DEMO_ROOT_KEY,
 } from '../src/modules/demo-seed/demo-seed.constants';
 
 const testDatabaseUrl =
@@ -23,6 +23,17 @@ process.env.AI_MODEL = 'stub-tutor-v0';
 type RecordWithId = {
   id: string;
 };
+
+const rootNodeSeed = SYSTEM_DESIGN_DEMO_NODES.find((node) => node.key === SYSTEM_DESIGN_DEMO_ROOT_KEY);
+if (!rootNodeSeed) {
+  throw new Error('Demo seed test fixture is missing its root node');
+}
+
+const uniqueHighlightCount = new Set(
+  SYSTEM_DESIGN_DEMO_BRANCHES.map((branch) =>
+    [branch.sourceKey, branch.sourceMessageSequence, branch.selectedText].join(':'),
+  ),
+).size;
 
 async function requestJson<T>(baseUrl: string, path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(`${baseUrl}${path}`, {
@@ -95,11 +106,11 @@ describe('system design demo seed', () => {
 
     await expect(prisma.project.count()).resolves.toBe(1);
     await expect(prisma.graph.count()).resolves.toBe(1);
-    await expect(prisma.node.count()).resolves.toBe(1 + SYSTEM_DESIGN_DEMO_BRANCHES.length);
+    await expect(prisma.node.count()).resolves.toBe(SYSTEM_DESIGN_DEMO_NODES.length);
     await expect(prisma.edge.count({ where: { type: EdgeType.BRANCH } })).resolves.toBe(
       SYSTEM_DESIGN_DEMO_BRANCHES.length,
     );
-    await expect(prisma.highlight.count()).resolves.toBe(SYSTEM_DESIGN_DEMO_BRANCHES.length);
+    await expect(prisma.highlight.count()).resolves.toBe(uniqueHighlightCount);
     await expect(prisma.run.count({ where: { status: RunStatus.PENDING } })).resolves.toBe(
       SYSTEM_DESIGN_DEMO_BRANCHES.length,
     );
@@ -120,42 +131,61 @@ describe('system design demo seed', () => {
     const rootNode = await prisma.node.findUniqueOrThrow({ where: { id: graph.rootNodeId ?? '' } });
     expect(rootNode).toMatchObject({
       graphId: graph.id,
-      title: SYSTEM_DESIGN_DEMO_ROOT_TITLE,
+      title: rootNodeSeed.title,
     });
 
     const messages = await prisma.message.findMany({
       orderBy: { sequence: 'asc' },
       where: { nodeId: rootNode.id },
     });
-    expect(messages).toHaveLength(2);
-    expect(messages[0]).toMatchObject({
-      content: SYSTEM_DESIGN_DEMO_USER_PROMPT,
-      role: MessageRole.USER,
-      sequence: 0,
-    });
-    expect(messages[1]).toMatchObject({
-      role: MessageRole.ASSISTANT,
-      sequence: 1,
-    });
+    expect(messages).toHaveLength(rootNodeSeed.messages.length);
+    for (const [sequence, messageSeed] of rootNodeSeed.messages.entries()) {
+      expect(messages[sequence]).toMatchObject({
+        content: messageSeed.content,
+        role: messageSeed.role,
+        sequence,
+      });
+    }
 
     for (const branch of SYSTEM_DESIGN_DEMO_BRANCHES) {
-      const highlight = await prisma.highlight.findFirstOrThrow({
-        where: { selectedTextSnapshot: branch.selectedText },
-      });
-      expect(messages[1].content.slice(highlight.startOffset, highlight.endOffset)).toBe(branch.selectedText);
+      const sourceSeed = SYSTEM_DESIGN_DEMO_NODES.find((node) => node.key === branch.sourceKey);
+      const targetSeed = SYSTEM_DESIGN_DEMO_NODES.find((node) => node.key === branch.targetKey);
+      expect(sourceSeed).toBeDefined();
+      expect(targetSeed).toBeDefined();
 
+      const sourceNode = await prisma.node.findFirstOrThrow({
+        where: { graphId: graph.id, title: sourceSeed?.title },
+      });
+      const sourceMessage = await prisma.message.findFirstOrThrow({
+        where: {
+          nodeId: sourceNode.id,
+          sequence: branch.sourceMessageSequence,
+        },
+      });
+      const highlight = await prisma.highlight.findFirstOrThrow({
+        where: {
+          messageId: sourceMessage.id,
+          selectedTextSnapshot: branch.selectedText,
+        },
+      });
+      expect(sourceMessage.content.slice(highlight.startOffset, highlight.endOffset)).toBe(branch.selectedText);
+
+      const childNode = await prisma.node.findFirstOrThrow({
+        where: { graphId: graph.id, title: targetSeed?.title },
+      });
       const edge = await prisma.edge.findFirstOrThrow({
         where: {
-          label: branch.selectedText,
+          label: branch.label ?? branch.selectedText,
           sourceHighlightId: highlight.id,
-          sourceNodeId: rootNode.id,
+          sourceNodeId: sourceNode.id,
+          targetNodeId: childNode.id,
           type: EdgeType.BRANCH,
         },
       });
-      const childNode = await prisma.node.findUniqueOrThrow({ where: { id: edge.targetNodeId } });
+      expect(edge.targetNodeId).toBe(childNode.id);
       expect(childNode).toMatchObject({
-        summary: branch.summary,
-        title: branch.title,
+        summary: targetSeed?.summary,
+        title: targetSeed?.title,
       });
 
       const run = await prisma.run.findFirstOrThrow({
@@ -164,7 +194,7 @@ describe('system design demo seed', () => {
       const contextSnapshot = await prisma.contextSnapshot.findUniqueOrThrow({ where: { runId: run.id } });
       expect(contextSnapshot.selectedTextSnapshot).toBe(branch.selectedText);
       expect(contextSnapshot.includedHighlightIds).toEqual([highlight.id]);
-      expect(contextSnapshot.includedMessageIds).toEqual([messages[1].id]);
+      expect(contextSnapshot.includedMessageIds).toEqual([sourceMessage.id]);
     }
   });
 
@@ -197,9 +227,9 @@ describe('system design demo seed', () => {
       baseUrl,
       `/edges?graphId=${seededGraph?.id}`,
     );
-    const rootNode = nodes.find((node) => node.title === SYSTEM_DESIGN_DEMO_ROOT_TITLE);
+    const rootNode = nodes.find((node) => node.title === rootNodeSeed.title);
     expect(rootNode).toBeDefined();
-    expect(nodes).toHaveLength(1 + SYSTEM_DESIGN_DEMO_BRANCHES.length);
+    expect(nodes).toHaveLength(SYSTEM_DESIGN_DEMO_NODES.length);
     expect(edges.filter((edge) => edge.type === EdgeType.BRANCH)).toHaveLength(SYSTEM_DESIGN_DEMO_BRANCHES.length);
 
     const messages = await requestJson<Array<RecordWithId & { role: MessageRole }>>(
@@ -213,8 +243,15 @@ describe('system design demo seed', () => {
       baseUrl,
       `/highlights?messageId=${assistantMessage?.id}`,
     );
+    const expectedRootHighlights = [
+      ...new Set(
+        SYSTEM_DESIGN_DEMO_BRANCHES.filter((branch) => branch.sourceKey === SYSTEM_DESIGN_DEMO_ROOT_KEY).map(
+          (branch) => branch.selectedText,
+        ),
+      ),
+    ];
     expect(highlights.map((highlight) => highlight.selectedTextSnapshot).sort()).toEqual(
-      SYSTEM_DESIGN_DEMO_BRANCHES.map((branch) => branch.selectedText).sort(),
+      expectedRootHighlights.sort(),
     );
   });
 });

@@ -3,15 +3,14 @@ import { EdgeType, MessageRole, NodeType, RunStatus } from '@prisma/client';
 import { AiRunConfigService } from '../ai/ai-run-config.service';
 import { PrismaService } from '../../prisma/prisma.service';
 import {
-  SYSTEM_DESIGN_DEMO_ASSISTANT_RESPONSE,
   SYSTEM_DESIGN_DEMO_BRANCHES,
   SYSTEM_DESIGN_DEMO_CONTEXT_POLICY_VERSION,
   SYSTEM_DESIGN_DEMO_GRAPH_TITLE,
+  SYSTEM_DESIGN_DEMO_NODES,
   SYSTEM_DESIGN_DEMO_PROJECT_DESCRIPTION,
   SYSTEM_DESIGN_DEMO_PROJECT_TITLE,
   SYSTEM_DESIGN_DEMO_PROMPT_TEMPLATE_VERSION,
-  SYSTEM_DESIGN_DEMO_ROOT_TITLE,
-  SYSTEM_DESIGN_DEMO_USER_PROMPT,
+  SYSTEM_DESIGN_DEMO_ROOT_KEY,
 } from './demo-seed.constants';
 
 @Injectable()
@@ -67,69 +66,85 @@ export class DemoSeedService {
         },
       });
 
-      const rootNode = await tx.node.create({
-        data: {
-          graphId: graph.id,
-          layout: { height: 460, width: 700, x: 80, y: 180 },
-          summary: 'Start from the full URL shortener design and branch into interview subtopics.',
-          title: SYSTEM_DESIGN_DEMO_ROOT_TITLE,
-          type: NodeType.CONVERSATION,
-        },
-      });
+      const nodeRecords = new Map<string, { id: string }>();
+      const messageRecords = new Map<string, { content: string; id: string }>();
+
+      for (const nodeSeed of SYSTEM_DESIGN_DEMO_NODES) {
+        const node = await tx.node.create({
+          data: {
+            graphId: graph.id,
+            layout: nodeSeed.layout,
+            summary: nodeSeed.summary,
+            title: nodeSeed.title,
+            type: NodeType.CONVERSATION,
+          },
+        });
+
+        nodeRecords.set(nodeSeed.key, node);
+
+        for (const [sequence, messageSeed] of nodeSeed.messages.entries()) {
+          const message = await tx.message.create({
+            data: {
+              content: messageSeed.content,
+              nodeId: node.id,
+              role: messageSeed.role as MessageRole,
+              sequence,
+              tokenCount: messageSeed.tokenCount ?? estimateTokens(messageSeed.content),
+            },
+          });
+
+          messageRecords.set(getMessageKey(nodeSeed.key, sequence), {
+            content: messageSeed.content,
+            id: message.id,
+          });
+        }
+      }
+
+      const rootNode = nodeRecords.get(SYSTEM_DESIGN_DEMO_ROOT_KEY);
+      if (!rootNode) {
+        throw new Error(`Seed root node "${SYSTEM_DESIGN_DEMO_ROOT_KEY}" was not found`);
+      }
 
       await tx.graph.update({
         data: { rootNodeId: rootNode.id },
         where: { id: graph.id },
       });
 
-      await tx.message.create({
-        data: {
-          content: SYSTEM_DESIGN_DEMO_USER_PROMPT,
-          nodeId: rootNode.id,
-          role: MessageRole.USER,
-          sequence: 0,
-        },
-      });
-
-      const assistantMessage = await tx.message.create({
-        data: {
-          content: SYSTEM_DESIGN_DEMO_ASSISTANT_RESPONSE,
-          nodeId: rootNode.id,
-          role: MessageRole.ASSISTANT,
-          sequence: 1,
-          tokenCount: estimateTokens(SYSTEM_DESIGN_DEMO_ASSISTANT_RESPONSE),
-        },
-      });
+      const highlightRecords = new Map<string, { id: string }>();
 
       for (const branch of SYSTEM_DESIGN_DEMO_BRANCHES) {
-        const selectionRange = findSelectionRange(SYSTEM_DESIGN_DEMO_ASSISTANT_RESPONSE, branch.selectedText);
-        const highlight = await tx.highlight.create({
-          data: {
-            anchorVersion: 1,
-            endOffset: selectionRange.endOffset,
-            messageId: assistantMessage.id,
-            selectedTextSnapshot: branch.selectedText,
-            startOffset: selectionRange.startOffset,
-          },
-        });
+        const sourceNode = nodeRecords.get(branch.sourceKey);
+        const targetNode = nodeRecords.get(branch.targetKey);
+        const sourceMessage = messageRecords.get(getMessageKey(branch.sourceKey, branch.sourceMessageSequence));
 
-        const childNode = await tx.node.create({
-          data: {
-            graphId: graph.id,
-            layout: branch.layout,
-            summary: branch.summary,
-            title: branch.title,
-            type: NodeType.CONVERSATION,
-          },
-        });
+        if (!sourceNode || !targetNode || !sourceMessage) {
+          throw new Error(`Seed branch "${branch.label ?? branch.selectedText}" references a missing node or message`);
+        }
+
+        const highlightKey = getHighlightKey(branch.sourceKey, branch.sourceMessageSequence, branch.selectedText);
+        let highlight = highlightRecords.get(highlightKey);
+
+        if (!highlight) {
+          const selectionRange = findSelectionRange(sourceMessage.content, branch.selectedText);
+          highlight = await tx.highlight.create({
+            data: {
+              anchorVersion: 1,
+              endOffset: selectionRange.endOffset,
+              messageId: sourceMessage.id,
+              selectedTextSnapshot: branch.selectedText,
+              startOffset: selectionRange.startOffset,
+            },
+          });
+          highlightRecords.set(highlightKey, highlight);
+        }
 
         await tx.edge.create({
           data: {
             graphId: graph.id,
-            label: branch.selectedText,
+            label: branch.label ?? branch.selectedText,
             sourceHighlightId: highlight.id,
-            sourceNodeId: rootNode.id,
-            targetNodeId: childNode.id,
+            sourceNodeId: sourceNode.id,
+            targetNodeId: targetNode.id,
             type: EdgeType.BRANCH,
           },
         });
@@ -138,7 +153,7 @@ export class DemoSeedService {
           data: {
             contextPolicyVersion: SYSTEM_DESIGN_DEMO_CONTEXT_POLICY_VERSION,
             model: runConfig.model,
-            nodeId: childNode.id,
+            nodeId: targetNode.id,
             promptTemplateVersion: SYSTEM_DESIGN_DEMO_PROMPT_TEMPLATE_VERSION,
             provider: runConfig.provider,
             status: RunStatus.PENDING,
@@ -149,7 +164,7 @@ export class DemoSeedService {
           data: {
             contextPolicyVersion: SYSTEM_DESIGN_DEMO_CONTEXT_POLICY_VERSION,
             includedHighlightIds: [highlight.id],
-            includedMessageIds: [assistantMessage.id],
+            includedMessageIds: [sourceMessage.id],
             promptTemplateVersion: SYSTEM_DESIGN_DEMO_PROMPT_TEMPLATE_VERSION,
             runId: run.id,
             selectedTextSnapshot: branch.selectedText,
@@ -177,6 +192,14 @@ function findSelectionRange(content: string, selectedText: string) {
     endOffset: startOffset + selectedText.length,
     startOffset,
   };
+}
+
+function getMessageKey(nodeKey: string, sequence: number) {
+  return `${nodeKey}:${sequence}`;
+}
+
+function getHighlightKey(nodeKey: string, sequence: number, selectedText: string) {
+  return `${getMessageKey(nodeKey, sequence)}:${selectedText}`;
 }
 
 function estimateTokens(text: string) {

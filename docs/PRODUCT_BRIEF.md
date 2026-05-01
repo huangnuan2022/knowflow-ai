@@ -22,7 +22,7 @@ KnowFlow should not be positioned as a chatbot with a whiteboard skin. The graph
 - First target user: CS learners, software engineers, and technical interview-prep users.
 - Strongest wedge: branch from selected AI response text into a contextual child conversation.
 - First learning domains: computer science, system design, software engineering, interview preparation, and technical concepts.
-- First seeded demo topic: a system design interview graph for designing a URL shortener.
+- First seeded demo topic: a system design interview graph for designing a URL shortener, including a curated nested branch path from database schema to SQL and database categories.
 - MVP AI responses: non-streaming first.
 - MVP should prove learning-path value before expanding into collaboration, source libraries, or general knowledge management.
 
@@ -78,7 +78,7 @@ Secondary later users:
 3. The user creates or starts from a root conversation node.
 4. The user asks, "Explain the URL shortener architecture."
 5. AI responds inside the root node.
-6. The user selects "consistent hashing" in the response.
+6. The user selects a concept such as "database schema" or "short-code generation" in the response.
 7. KnowFlow creates a child node connected to the selected text.
 8. The child node includes the selected text as visible context.
 9. The user asks follow-up questions in that child node.

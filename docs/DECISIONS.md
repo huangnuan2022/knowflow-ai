@@ -132,7 +132,7 @@ This file records major product and architecture decisions. Update it whenever a
 
 ### 2026-04-30: Seed First Demo With A URL Shortener System Design Scenario
 
-- Decision: The first seeded demo topic is designing a URL shortener for a system design interview. The backend creates a deterministic persisted demo with a `System Design Prep` project, `Design a URL Shortener` graph, a fixed root prompt and assistant answer, and branchable highlights for short-code generation, database schema, cache-aside strategy, redirect latency, rate limiting, and analytics.
+- Decision: The first seeded demo topic is designing a URL shortener for a system design interview. The backend creates a deterministic persisted demo with a `System Design Prep` project, `Design a URL Shortener` graph, a fixed root prompt and assistant answer, branchable highlights for short-code generation, database schema, cache-aside strategy, redirect latency, rate limiting, and analytics, plus curated nested branches that demonstrate deeper exploration from database schema to SQL and database categories.
 - Reason: The URL shortener scenario is interview-relevant, naturally graph-shaped, and better demonstrates KnowFlow's learning-path value across multiple architecture subtopics than a single algorithm walkthrough.
 - Tradeoff: The demo is hand-authored rather than generated live by AI, so it is less spontaneous but far more stable for local setup, testing, and reviewer demos.
 - Simpler MVP alternative: No seeded demo.

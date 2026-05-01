@@ -244,7 +244,7 @@ All created records must persist after refresh. If any part fails, the operation
 ### Acceptance Criteria
 
 - A demo user can understand the product in under 3 minutes.
-- The URL shortener seeded graph makes the branch-from-selection workflow obvious.
+- The URL shortener seeded graph makes the branch-from-selection workflow obvious, including nested branches such as database schema -> SQL -> database categories.
 - Context chips make AI behavior understandable.
 - Exported data can be imported without losing graph, node, edge, message, highlight, and run references.
 - A user can recover from common AI failures without losing work.

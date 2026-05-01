@@ -52,7 +52,7 @@ Canvas-first interaction rule:
 
 - The topbar owns the minimal v0 workspace manager: switch project, switch graph, create project, create graph, and edit the active project/graph metadata through existing backend CRUD boundaries.
 - Active project and graph selection is frontend navigation state, not authorization state. For v0 it can be persisted in URL query parameters plus localStorage so refreshes and shared local URLs reopen the same graph.
-- The System Design Prep / Design a URL Shortener seeded demo should be created only when the backend has no projects. New user-created projects may get a blank starter graph, but should not receive demo content.
+- The System Design Prep / Design a URL Shortener seeded demo should be created only when the backend has no projects. It is backend-owned deterministic fixture data with persisted nodes, messages, highlights, branch edges, pending branch-context runs, and context snapshots. New user-created projects may get a blank starter graph, but should not receive demo content.
 - Switching projects or graphs should clear node focus and fit the whole graph into view with a readable maximum zoom, rather than opening on a single oversized node.
 - The expanded canvas node is the primary place to read, ask, select AI response text, and branch.
 - The right sidebar inspector is removed from v0. It duplicated the expanded node, created layout pressure, and made scroll/state coordination more fragile. The expanded canvas node now owns reading, asking, highlighting, branching, and branch-context navigation.

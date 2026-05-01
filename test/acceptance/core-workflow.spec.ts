@@ -1,11 +1,21 @@
 import { expect, Locator, test } from '@playwright/test';
 import { EdgeType, MessageRole, PrismaClient } from '@prisma/client';
+import { SYSTEM_DESIGN_DEMO_NODES } from '../../src/modules/demo-seed/demo-seed.constants';
 
 const testDatabaseUrl =
   process.env.TEST_DATABASE_URL ??
   'postgresql://knowflow:knowflow@localhost:15432/knowflow_test?schema=public';
 const selectedText = 'path compression';
 const prompt = 'Explain path compression';
+const seedUserMessageCount = SYSTEM_DESIGN_DEMO_NODES.reduce(
+  (count, node) => count + node.messages.filter((message) => message.role === MessageRole.USER).length,
+  0,
+);
+const seedAssistantMessageCount = SYSTEM_DESIGN_DEMO_NODES.reduce(
+  (count, node) => count + node.messages.filter((message) => message.role === MessageRole.ASSISTANT).length,
+  0,
+);
+const newConversationTitle = `Conversation ${SYSTEM_DESIGN_DEMO_NODES.length + 1}`;
 
 const prisma = new PrismaClient({
   datasources: {
@@ -33,16 +43,16 @@ test('protects the canvas ask, branch, and refresh workflow', async ({ page }) =
     await page.goto('/');
     await expect(page.getByLabel('Project title')).toHaveValue('System Design Prep');
     await expect(page.getByLabel('Graph title')).toHaveValue('Design a URL Shortener');
-    await expect(page.getByTestId('conversation-node')).toHaveCount(7);
+    await expect(page.getByTestId('conversation-node')).toHaveCount(SYSTEM_DESIGN_DEMO_NODES.length);
   });
 
   await test.step('create a root conversation node and ask the stub provider', async () => {
     await page.getByRole('button', { name: /^Node$/ }).click();
 
-    const sourceNode = page.getByTestId('conversation-node').filter({ hasText: 'Conversation 8' }).first();
+    const sourceNode = page.getByTestId('conversation-node').filter({ hasText: newConversationTitle }).first();
     await expect(sourceNode).toBeVisible();
     await sourceNode.click();
-    await expect(sourceNode.getByLabel('Node title')).toHaveValue('Conversation 8');
+    await expect(sourceNode.getByLabel('Node title')).toHaveValue(newConversationTitle);
     const askInput = page.getByLabel('Ask about this node');
     await expect(askInput).toBeVisible();
     await askInput.fill(prompt);
@@ -53,7 +63,7 @@ test('protects the canvas ask, branch, and refresh workflow', async ({ page }) =
   });
 
   await test.step('select exact assistant text and branch from the inline action', async () => {
-    const sourceNode = page.getByTestId('conversation-node').filter({ hasText: 'Conversation 8' }).first();
+    const sourceNode = page.getByTestId('conversation-node').filter({ hasText: newConversationTitle }).first();
     const assistantMessage = sourceNode.getByTestId('canvas-message-content').filter({ hasText: 'Stub response' }).first();
 
     await selectTextInLocator(assistantMessage, selectedText);
@@ -80,9 +90,9 @@ test('protects the canvas ask, branch, and refresh workflow', async ({ page }) =
       where: { selectedTextSnapshot: selectedText },
     });
 
-    expect(await prisma.node.count()).toBe(9);
-    expect(await prisma.message.count({ where: { role: MessageRole.USER } })).toBe(2);
-    expect(await prisma.message.count({ where: { role: MessageRole.ASSISTANT } })).toBe(2);
+    expect(await prisma.node.count()).toBe(SYSTEM_DESIGN_DEMO_NODES.length + 2);
+    expect(await prisma.message.count({ where: { role: MessageRole.USER } })).toBe(seedUserMessageCount + 1);
+    expect(await prisma.message.count({ where: { role: MessageRole.ASSISTANT } })).toBe(seedAssistantMessageCount + 1);
     expect(await prisma.highlight.count({ where: { selectedTextSnapshot: selectedText } })).toBe(1);
     expect(
       await prisma.edge.count({
@@ -110,7 +120,7 @@ test('protects the canvas ask, branch, and refresh workflow', async ({ page }) =
     await expect(childNode).toBeVisible();
     await expect(childNode).toContainText(`Branch context: ${selectedText}`);
 
-    const sourceNode = page.getByTestId('conversation-node').filter({ hasText: 'Conversation 8' }).first();
+    const sourceNode = page.getByTestId('conversation-node').filter({ hasText: newConversationTitle }).first();
     await sourceNode.click();
     await expect(page.getByTestId('branch-highlight').filter({ hasText: selectedText }).first()).toBeVisible();
   });
