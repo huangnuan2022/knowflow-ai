@@ -608,20 +608,46 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
             <section
               className={`conversation-node__context ${isContextExpanded ? 'is-expanded' : ''} nodrag nopan nowheel`}
             >
-              <button
-                aria-expanded={isContextExpanded}
-                className="conversation-node__context-toggle"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  setIsContextExpanded((current) => !current);
-                }}
-                onPointerDown={(event) => event.stopPropagation()}
-                type="button"
-              >
-                <span>Branch context</span>
-                <strong>{truncateText(nodeData.branchContext.text, 88)}</strong>
-                {isContextExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-              </button>
+              <div className="conversation-node__context-row">
+                <button
+                  className="conversation-node__context-toggle"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (nodeData.branchContext?.highlightId) {
+                      nodeData.onBranchSourceSelected?.(
+                        nodeData.branchContext.sourceNodeId,
+                        nodeData.branchContext.highlightId,
+                      );
+                      return;
+                    }
+
+                    setIsContextExpanded((current) => !current);
+                  }}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  title={
+                    nodeData.branchContext.highlightId
+                      ? 'Show the source highlight that created this branch'
+                      : 'Show branch context'
+                  }
+                  type="button"
+                >
+                  <span>Branch context</span>
+                  <strong>{truncateText(nodeData.branchContext.text, 88)}</strong>
+                </button>
+                <button
+                  aria-expanded={isContextExpanded}
+                  aria-label={isContextExpanded ? 'Hide branch context' : 'Show branch context'}
+                  className="conversation-node__context-expand"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setIsContextExpanded((current) => !current);
+                  }}
+                  onPointerDown={(event) => event.stopPropagation()}
+                  type="button"
+                >
+                  {isContextExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                </button>
+              </div>
               {isContextExpanded ? <p>{nodeData.branchContext.text}</p> : null}
             </section>
           ) : null}
