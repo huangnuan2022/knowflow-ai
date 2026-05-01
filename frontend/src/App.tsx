@@ -1198,16 +1198,16 @@ function KnowFlowCanvas() {
               ) : null}
               <span className="status-pill">{statusText}</span>
             </div>
+            <div className="topbar__actions topbar__actions--inline">
+              <button aria-label="Refresh graph" className="icon-button" onClick={() => void refresh()} type="button">
+                <RefreshCw size={18} />
+              </button>
+              <button className="primary-button" disabled={!bundle || isSaving} onClick={onCreateNode} type="button">
+                <Plus size={18} />
+                Node
+              </button>
+            </div>
           </div>
-        </div>
-        <div className="topbar__actions">
-          <button aria-label="Refresh graph" className="icon-button" onClick={() => void refresh()} type="button">
-            <RefreshCw size={18} />
-          </button>
-          <button className="primary-button" disabled={!bundle || isSaving} onClick={onCreateNode} type="button">
-            <Plus size={18} />
-            Node
-          </button>
         </div>
       </header>
 
