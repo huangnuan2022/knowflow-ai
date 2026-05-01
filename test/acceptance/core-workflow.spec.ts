@@ -40,8 +40,8 @@ test('protects the canvas ask, branch, and refresh workflow', async ({ page }) =
 
     const sourceNode = page.getByTestId('conversation-node').first();
     await expect(sourceNode).toBeVisible();
-    await expect(sourceNode.getByLabel('Node title')).toHaveValue('Conversation 1');
     await sourceNode.click();
+    await expect(sourceNode.getByLabel('Node title')).toHaveValue('Conversation 1');
     const askInput = page.getByLabel('Ask about this node');
     await expect(askInput).toBeVisible();
     await askInput.fill(prompt);

@@ -22,7 +22,7 @@ button {
 
 .app-shell {
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto auto minmax(0, 1fr);
   height: 100vh;
 }
 
@@ -227,8 +227,32 @@ button {
   background: #fef2f2;
   border-bottom: 1px solid #fecaca;
   color: #991b1b;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
   font-size: 14px;
+  line-height: 1.35;
   padding: 10px 20px;
+}
+
+.error-banner button {
+  align-items: center;
+  background: transparent;
+  border: 0;
+  color: #991b1b;
+  cursor: pointer;
+  display: inline-flex;
+  height: 24px;
+  justify-content: center;
+  margin: -3px -6px -3px 0;
+  width: 24px;
+}
+
+.error-banner button:hover,
+.error-banner button:focus {
+  background: rgb(153 27 27 / 0.08);
+  border-radius: 6px;
+  outline: none;
 }
 
 .confirm-layer {
@@ -1025,7 +1049,7 @@ button {
 
 .conversation-node__highlight {
   position: relative;
-  padding-right: 26px;
+  padding-right: 34px;
   width: 100%;
 }
 
@@ -1034,10 +1058,10 @@ button {
   content: "";
   opacity: 0.72;
   position: absolute;
-  right: 4px;
+  right: -4px;
   top: 50%;
   transform: translateY(-50%);
-  width: 22px;
+  width: 34px;
   z-index: 1;
 }
 
@@ -1162,11 +1186,6 @@ button {
   opacity: 1;
 }
 
-.node-handle--manual-hidden {
-  opacity: 0 !important;
-  pointer-events: none !important;
-}
-
 .node-handle--highlight {
   background: transparent !important;
   border: 0 !important;
@@ -1181,7 +1200,7 @@ button {
 }
 
 .conversation-node__highlight .node-handle--highlight {
-  right: 26px;
+  right: -4px;
 }
 
 .node-handle--inline-highlight {
@@ -1222,8 +1241,12 @@ button {
   z-index: 15;
 }
 
-.editable-edge-label.is-related-to-selected {
-  z-index: 1600;
+.editable-edge-label.is-branch.is-related-to-selected {
+  z-index: 900;
+}
+
+.editable-edge-label.is-manual {
+  z-index: 20;
 }
 
 .editable-edge-label__actions {

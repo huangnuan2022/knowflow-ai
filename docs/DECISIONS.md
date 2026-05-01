@@ -168,7 +168,7 @@ This file records major product and architecture decisions. Update it whenever a
 
 ### 2026-04-30: Keep Manual Edges Separate From Branch Edges
 
-- Decision: Manual node-to-node edges are lightweight peer relationships between collapsed node-level handles. They may have editable labels and delete controls. They should not originate from branch highlights or branch-point chips.
+- Decision: Manual node-to-node edges are lightweight peer relationships between node-level handles in either collapsed or expanded node states. They may have editable labels and delete controls. They should not originate from branch highlights or branch-point chips.
 - Reason: Manual relationships and branch provenance mean different things. Mixing them would make it unclear whether an edge represents a selected-text learning fork or a user-authored association.
 - Tradeoff: Manual linking is less expressive than freeform edge drawing from arbitrary text spans.
 - Simpler MVP alternative: Disable manual edges until branching is polished.

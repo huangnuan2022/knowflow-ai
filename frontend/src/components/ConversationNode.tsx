@@ -507,11 +507,9 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
       ))}
       {manualHandleSides.map((side) => (
         <Handle
-          className={`node-handle node-handle--manual node-handle--manual-target node-handle--manual-${side} ${
-            isExpanded ? 'node-handle--manual-hidden' : ''
-          }`}
+          className={`node-handle node-handle--manual node-handle--manual-target node-handle--manual-${side}`}
           id={manualNodeHandleId('target', side)}
-          isConnectable={!isExpanded}
+          isConnectable
           key={`manual-target-${side}`}
           position={manualHandlePosition(side)}
           type="target"
@@ -649,11 +647,9 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
 
       {manualHandleSides.map((side) => (
         <Handle
-          className={`node-handle node-handle--manual node-handle--manual-source node-handle--manual-${side} ${
-            isExpanded ? 'node-handle--manual-hidden' : ''
-          }`}
+          className={`node-handle node-handle--manual node-handle--manual-source node-handle--manual-${side}`}
           id={manualNodeHandleId('source', side)}
-          isConnectable={!isExpanded}
+          isConnectable
           key={`manual-source-${side}`}
           position={manualHandlePosition(side)}
           type="source"

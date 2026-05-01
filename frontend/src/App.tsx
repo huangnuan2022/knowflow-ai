@@ -17,7 +17,7 @@ import {
   useNodesState,
   useReactFlow,
 } from '@xyflow/react';
-import { AlertTriangle, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { AlertTriangle, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import {
   CSSProperties,
   ChangeEvent,
@@ -794,7 +794,7 @@ function KnowFlowCanvas() {
   const onConnectEnd = useCallback<OnConnectEnd>(() => {
     window.setTimeout(() => {
       if (manualConnectionStartedRef.current && !manualConnectionCompletedRef.current) {
-        setError('Drop on another collapsed node side handle to create a manual relationship edge.');
+        setError('Drop on another node side handle to create a manual relationship edge.');
       }
       manualConnectionStartedRef.current = false;
       manualConnectionCompletedRef.current = false;
@@ -807,16 +807,12 @@ function KnowFlowCanvas() {
       if (!bundle || !connection.source || !connection.target) {
         return;
       }
-      if (connection.source === selectedNodeId || connection.target === selectedNodeId) {
-        setError('Collapse expanded nodes before creating a manual relationship edge.');
-        return;
-      }
       if (connection.source === connection.target) {
         setError('Manual relationship edges need two different nodes.');
         return;
       }
       if (!isManualHandleId(connection.sourceHandle) || !isManualHandleId(connection.targetHandle)) {
-        setError('Create manual relationship edges from collapsed node side handles.');
+        setError('Create manual relationship edges from node side handles.');
         return;
       }
 
@@ -842,7 +838,7 @@ function KnowFlowCanvas() {
         setIsSaving(false);
       }
     },
-    [bundle, selectedNodeId],
+    [bundle],
   );
 
   const statusText = useMemo(() => {
@@ -960,7 +956,14 @@ function KnowFlowCanvas() {
         </div>
       </header>
 
-      {error ? <div className="error-banner">{error}</div> : null}
+      {error ? (
+        <div className="error-banner">
+          <span>{error}</span>
+          <button aria-label="Dismiss error" onClick={() => setError(null)} type="button">
+            <X size={14} />
+          </button>
+        </div>
+      ) : null}
 
       <div
         className="workspace"
