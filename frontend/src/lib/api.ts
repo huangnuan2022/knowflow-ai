@@ -25,21 +25,25 @@ export type WorkspaceSelection = {
 };
 
 export async function loadGraphBundle(selection: WorkspaceSelection = {}): Promise<GraphBundle> {
-  const projects = await get<Project[]>('/projects');
+  let projects = await get<Project[]>('/projects');
+  if (projects.length === 0) {
+    const seededDemo = await seedSystemDesignDemo();
+    projects = await get<Project[]>('/projects');
+    if (projects.length === 0) {
+      projects = [seededDemo.project];
+    }
+  }
+
   const activeProject =
     projects.find((project) => project.id === selection.projectId) ??
-    projects[0] ??
-    (await createProject({
-      description: 'Local KnowFlow workspace',
-      title: 'KnowFlow Demo Project',
-    }));
+    projects[0];
   const graphs = await get<Graph[]>(`/graphs?projectId=${activeProject.id}`);
   const activeGraph =
     graphs.find((graph) => graph.id === selection.graphId) ??
     graphs[0] ??
     (await createGraph({
       projectId: activeProject.id,
-      title: projects.length === 0 ? 'Union Find / Path Compression' : 'Untitled Graph',
+      title: 'Untitled Graph',
     }));
   const activeProjectGraphs = graphs.some((graph) => graph.id === activeGraph.id) ? graphs : [...graphs, activeGraph];
   const [nodes, edges] = await Promise.all([
@@ -59,6 +63,14 @@ export async function loadGraphBundle(selection: WorkspaceSelection = {}): Promi
     nodes,
     projects: projects.length > 0 ? projects : [activeProject],
   };
+}
+
+export async function seedSystemDesignDemo() {
+  return post<{
+    created: boolean;
+    graph: Graph;
+    project: Project;
+  }>('/demo-seed/system-design', {});
 }
 
 export async function createProject(input: { description?: string | null; title: string }) {

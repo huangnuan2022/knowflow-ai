@@ -19,10 +19,8 @@ import {
 } from '@xyflow/react';
 import { AlertTriangle, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import {
-  CSSProperties,
   ChangeEvent,
   KeyboardEvent,
-  PointerEvent as ReactPointerEvent,
   useCallback,
   useEffect,
   useMemo,
@@ -30,7 +28,6 @@ import {
   useState,
 } from 'react';
 import { ConversationNode } from './components/ConversationNode';
-import { ConversationPanel } from './components/ConversationPanel';
 import { EditableEdge } from './components/EditableEdge';
 import {
   createGraph,
@@ -48,7 +45,7 @@ import {
   updateProject,
   WorkspaceSelection,
 } from './lib/api';
-import { AiRunDefaults, DomainEdge, Graph, GraphBundle, NodeLayout, Project } from './lib/domain';
+import { AiRunDefaults, Graph, GraphBundle, NodeLayout, Project } from './lib/domain';
 import {
   ConversationFlowEdge,
   ConversationFlowNode,
@@ -56,7 +53,6 @@ import {
   toReactFlowEdges,
   toReactFlowNodes,
 } from './lib/reactFlowAdapter';
-import { ReaderSyncAnchor } from './lib/readerSync';
 
 const nodeTypes = {
   conversation: ConversationNode,
@@ -66,9 +62,6 @@ const edgeTypes = {
   editable: EditableEdge,
 };
 
-const INSPECTOR_WIDTH_STORAGE_KEY = 'knowflow.inspectorWidth';
-const INSPECTOR_MIN_WIDTH = 300;
-const INSPECTOR_DEFAULT_WIDTH = 340;
 const WORKSPACE_SELECTION_STORAGE_KEY = 'knowflow.activeWorkspace';
 const INITIAL_FIT_VIEW_OPTIONS = {
   maxZoom: 0.88,
@@ -79,6 +72,7 @@ const GRAPH_ENTRY_FIT_VIEW_OPTIONS = {
   maxZoom: 0.88,
   padding: 0.34,
 };
+const MAXIMIZED_NODE_FOCUS_ZOOM = 0.86;
 
 export function App() {
   return (
@@ -98,11 +92,12 @@ function KnowFlowCanvas() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [inspectorWidth, setInspectorWidth] = useState(() => readInitialInspectorWidth());
   const [projectTitleDraft, setProjectTitleDraft] = useState('');
   const [projectDescriptionDraft, setProjectDescriptionDraft] = useState('');
   const [graphTitleDraft, setGraphTitleDraft] = useState('');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [maximizedNodeId, setMaximizedNodeId] = useState<string | null>(null);
+  const [canvasViewportSize, setCanvasViewportSize] = useState({ height: 0, width: 0 });
   const [pendingDeleteNodeIds, setPendingDeleteNodeIds] = useState<string[]>([]);
   const [pendingFocusNodeId, setPendingFocusNodeId] = useState<string | null>(null);
   const [visibleBranchHighlightIdsByNodeId, setVisibleBranchHighlightIdsByNodeId] = useState<
@@ -117,15 +112,39 @@ function KnowFlowCanvas() {
     nodeId: string;
     requestId: number;
   } | null>(null);
-  const [readerSyncAnchor, setReaderSyncAnchor] = useState<ReaderSyncAnchor | null>(null);
   const isNodeDraggingRef = useRef(false);
   const manualConnectionStartedRef = useRef(false);
   const manualConnectionCompletedRef = useRef(false);
   const lastAutoFitGraphIdRef = useRef<string | null>(null);
   const canvasFrameRef = useRef<HTMLElement>(null);
 
+  useEffect(() => {
+    const canvasFrame = canvasFrameRef.current;
+    if (!canvasFrame) {
+      return;
+    }
+
+    const updateCanvasViewportSize = () => {
+      const rect = canvasFrame.getBoundingClientRect();
+      setCanvasViewportSize((currentSize) => {
+        const nextSize = {
+          height: Math.round(rect.height),
+          width: Math.round(rect.width),
+        };
+        return currentSize.height === nextSize.height && currentSize.width === nextSize.width ? currentSize : nextSize;
+      });
+    };
+
+    updateCanvasViewportSize();
+    const resizeObserver = new ResizeObserver(updateCanvasViewportSize);
+    resizeObserver.observe(canvasFrame);
+
+    return () => resizeObserver.disconnect();
+  }, []);
+
   const clearCanvasFocus = useCallback(() => {
     setSelectedNodeId(null);
+    setMaximizedNodeId(null);
     setPendingBranchView(null);
     setPendingFocusNodeId(null);
     setVisibleBranchHighlightIdsByNodeId({});
@@ -182,14 +201,6 @@ function KnowFlowCanvas() {
   const projectTitle = bundle?.activeProject.title ?? 'Workspace';
   const nodeCount = nodes.length;
   const edgeCount = bundle?.edges.length ?? edges.length;
-  const selectedNode = useMemo(
-    () => bundle?.nodes.find((node) => node.id === selectedNodeId),
-    [bundle?.nodes, selectedNodeId],
-  );
-  const selectedNodeBranchContext = useMemo(
-    () => findInboundBranchContext(bundle?.edges, selectedNodeId),
-    [bundle?.edges, selectedNodeId],
-  );
   const pendingDeleteNodeTitle = useMemo(() => {
     if (pendingDeleteNodeIds.length !== 1) {
       return null;
@@ -374,26 +385,6 @@ function KnowFlowCanvas() {
     }
   }, []);
 
-  const onInspectorResizeStart = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-
-    const onPointerMove = (moveEvent: PointerEvent) => {
-      const maxWidth = Math.round(window.innerWidth * 0.55);
-      const nextWidth = clampNumber(window.innerWidth - moveEvent.clientX, INSPECTOR_MIN_WIDTH, maxWidth);
-      setInspectorWidth(nextWidth);
-      window.localStorage.setItem(INSPECTOR_WIDTH_STORAGE_KEY, String(nextWidth));
-    };
-
-    const onPointerUp = () => {
-      window.removeEventListener('pointermove', onPointerMove);
-      window.removeEventListener('pointerup', onPointerUp);
-    };
-
-    window.addEventListener('pointermove', onPointerMove);
-    window.addEventListener('pointerup', onPointerUp);
-  }, []);
-
   const deleteNodesByIds = useCallback(
     async (nodeIds: string[]) => {
       const uniqueNodeIds = [...new Set(nodeIds)];
@@ -524,7 +515,13 @@ function KnowFlowCanvas() {
   }, [bundle, nodes.length, screenToFlowPosition]);
 
   const onBranchCreated = useCallback(
-    async (childNodeId: string, sourceNodeId: string) => {
+    async (childNodeId: string, sourceNodeId: string, sourceHighlightId?: string) => {
+      if (sourceHighlightId) {
+        setVisibleBranchHighlightIdsByNodeId((currentVisibleIds) => ({
+          ...currentVisibleIds,
+          [sourceNodeId]: [sourceHighlightId],
+        }));
+      }
       await refresh();
       setSelectedNodeId(sourceNodeId);
       setPendingBranchView({ childNodeId, sourceNodeId });
@@ -667,19 +664,10 @@ function KnowFlowCanvas() {
     });
   }, []);
 
-  const onReaderSyncAnchorChanged = useCallback((anchor: ReaderSyncAnchor) => {
-    setReaderSyncAnchor((currentAnchor) => {
-      if (
-        currentAnchor?.nodeId === anchor.nodeId &&
-        currentAnchor.messageId === anchor.messageId &&
-        currentAnchor.source === anchor.source &&
-        Math.abs(currentAnchor.ratio - anchor.ratio) < 0.04
-      ) {
-        return currentAnchor;
-      }
-
-      return anchor;
-    });
+  const onNodeMaximizeToggled = useCallback((nodeId: string) => {
+    setSelectedNodeId(nodeId);
+    setPendingFocusNodeId(nodeId);
+    setMaximizedNodeId((currentNodeId) => (currentNodeId === nodeId ? null : nodeId));
   }, []);
 
   useEffect(() => {
@@ -700,16 +688,18 @@ function KnowFlowCanvas() {
           onNodeDeleteRequested,
           onNodeMessagesChanged,
           onNodeResizeEnded,
-          onReaderSyncAnchorChanged,
           onVisibleBranchHighlightsChanged,
-          readerSyncAnchor,
+          onNodeMaximizeToggled,
         },
         selectedNodeId,
         highlightRevealRequest,
+        maximizedNodeId,
+        canvasViewportSize,
       ),
     );
   }, [
     bundle,
+    canvasViewportSize,
     onBranchCreated,
     onBranchSourceSelected,
     onBranchTargetSelected,
@@ -717,10 +707,10 @@ function KnowFlowCanvas() {
     onNodeDeleteRequested,
     onNodeMessagesChanged,
     onNodeResizeEnded,
-    onReaderSyncAnchorChanged,
+    onNodeMaximizeToggled,
     onVisibleBranchHighlightsChanged,
     highlightRevealRequest,
-    readerSyncAnchor,
+    maximizedNodeId,
     selectedNodeId,
     setNodes,
   ]);
@@ -792,6 +782,9 @@ function KnowFlowCanvas() {
     if (!targetNode) {
       return;
     }
+    if (pendingFocusNodeId === maximizedNodeId && !targetNode.data.isMaximized) {
+      return;
+    }
 
     const timeoutId = window.setTimeout(() => {
       const width = numberOrDefault(targetNode.style?.width, numberOrDefault(targetNode.data.layout?.width, 560));
@@ -799,13 +792,13 @@ function KnowFlowCanvas() {
 
       void setCenter(targetNode.position.x + width / 2, targetNode.position.y + height / 2, {
         duration: 320,
-        zoom: 0.95,
+        zoom: targetNode.data.isMaximized ? MAXIMIZED_NODE_FOCUS_ZOOM : 0.95,
       });
       setPendingFocusNodeId(null);
     }, 0);
 
     return () => window.clearTimeout(timeoutId);
-  }, [nodes, pendingFocusNodeId, setCenter]);
+  }, [maximizedNodeId, nodes, pendingFocusNodeId, setCenter]);
 
   const onConnectStart = useCallback<OnConnectStart>((_, params) => {
     manualConnectionStartedRef.current = isManualHandleId(params.handleId);
@@ -987,8 +980,7 @@ function KnowFlowCanvas() {
       ) : null}
 
       <div
-        className={`workspace ${selectedNode ? 'has-inspector' : ''}`}
-        style={{ '--inspector-width': `${inspectorWidth}px` } as CSSProperties}
+        className="workspace"
       >
         <section className="canvas-frame" aria-label="KnowFlow graph canvas" ref={canvasFrameRef}>
           <ReactFlow
@@ -1021,34 +1013,13 @@ function KnowFlowCanvas() {
               }, 0);
             }}
             onNodesChange={onNodesChange}
-            onPaneClick={() => setSelectedNodeId(null)}
+            onPaneClick={clearCanvasFocus}
           >
             <Background />
             <MiniMap pannable zoomable />
             <Controls />
           </ReactFlow>
         </section>
-        {selectedNode ? (
-          <>
-            <div
-              aria-label="Resize inspector"
-              className="inspector-resize-handle"
-              onPointerDown={onInspectorResizeStart}
-              role="separator"
-              tabIndex={0}
-            />
-            <ConversationPanel
-              branchContext={selectedNodeBranchContext}
-              node={selectedNode}
-              onBranchCreated={onBranchCreated}
-              onBranchSourceSelected={onBranchSourceSelected}
-              onNodeMessagesChanged={onNodeMessagesChanged}
-              onReaderSyncAnchorChanged={onReaderSyncAnchorChanged}
-              readerSyncAnchor={readerSyncAnchor}
-              readOnly
-            />
-          </>
-        ) : null}
       </div>
       {pendingDeleteNodeIds.length > 0 ? (
         <DeleteConfirmDialog
@@ -1117,23 +1088,6 @@ function DeleteConfirmDialog({
   );
 }
 
-function findInboundBranchContext(edges: DomainEdge[] | undefined, selectedNodeId: string | null) {
-  if (!edges || !selectedNodeId) {
-    return undefined;
-  }
-
-  const inboundBranch = edges.find((edge) => edge.targetNodeId === selectedNodeId && edge.type === 'BRANCH');
-  if (!inboundBranch?.label) {
-    return undefined;
-  }
-
-  return {
-    highlightId: inboundBranch.sourceHighlightId ?? undefined,
-    sourceNodeId: inboundBranch.sourceNodeId,
-    text: inboundBranch.label,
-  };
-}
-
 function isCompletedPositionChange(
   change: NodeChange<ConversationFlowNode>,
 ): change is NodePositionChange & { position: { x: number; y: number } } {
@@ -1168,23 +1122,6 @@ function newNodePositionFromViewport(
 
 function numberOrDefault(value: unknown, fallback: number) {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
-}
-
-function clampNumber(value: number, min: number, max: number) {
-  return Math.min(Math.max(value, min), Math.max(min, max));
-}
-
-function readInitialInspectorWidth() {
-  try {
-    const storedWidth = Number(localStorage.getItem(INSPECTOR_WIDTH_STORAGE_KEY));
-    if (Number.isFinite(storedWidth)) {
-      return clampNumber(storedWidth, INSPECTOR_MIN_WIDTH, Math.round(window.innerWidth * 0.55));
-    }
-  } catch {
-    // Local storage can be unavailable in private or restricted browser contexts.
-  }
-
-  return INSPECTOR_DEFAULT_WIDTH;
 }
 
 function mergeNodeLayoutIntoBundle(bundle: GraphBundle, nodeId: string, layout: NodeLayout): GraphBundle {

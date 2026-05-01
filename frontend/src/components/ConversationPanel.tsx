@@ -10,7 +10,7 @@ import {
 } from '../lib/api';
 import { DomainNode, Highlight, Message, NodeLayout } from '../lib/domain';
 import { BranchColor, colorForHighlightId } from '../lib/reactFlowAdapter';
-import { findReaderSyncAnchor, ReaderSyncAnchor, scrollReaderToAnchor } from '../lib/readerSync';
+import { ReaderSyncAnchor, scrollReaderToAnchor } from '../lib/readerSync';
 import { readTextSelectionWithin, TextSelectionRange } from '../lib/textSelection';
 
 type ConversationPanelProps = {
@@ -42,7 +42,6 @@ export function ConversationPanel({
   onBranchCreated,
   onBranchSourceSelected,
   onNodeMessagesChanged,
-  onReaderSyncAnchorChanged,
   readOnly = false,
   readerSyncAnchor,
 }: ConversationPanelProps) {
@@ -55,7 +54,6 @@ export function ConversationPanel({
   const [isBranching, setIsBranching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const isApplyingReaderSyncRef = useRef(false);
-  const lastReaderSyncKeyRef = useRef('');
   const messageListRef = useRef<HTMLDivElement>(null);
 
   const sortedMessages = useMemo(
@@ -111,31 +109,6 @@ export function ConversationPanel({
 
     return () => window.clearTimeout(timeoutId);
   }, [node, readOnly, readerSyncAnchor]);
-
-  const onMessageListScroll = useCallback(() => {
-    if (!readOnly || !node || !messageListRef.current || isApplyingReaderSyncRef.current) {
-      return;
-    }
-
-    const anchor = findReaderSyncAnchor(
-      messageListRef.current,
-      '[data-reader-message-id]',
-      node.id,
-      'inspector',
-      Date.now(),
-    );
-    if (!anchor) {
-      return;
-    }
-
-    const syncKey = `${anchor.messageId}:${Math.round(anchor.ratio * 20)}`;
-    if (syncKey === lastReaderSyncKeyRef.current) {
-      return;
-    }
-
-    lastReaderSyncKeyRef.current = syncKey;
-    onReaderSyncAnchorChanged?.(anchor);
-  }, [node, onReaderSyncAnchorChanged, readOnly]);
 
   const onAssistantSelection = useCallback(
     (message: Message, element: HTMLElement) => {
@@ -277,7 +250,7 @@ export function ConversationPanel({
         </div>
       ) : null}
 
-      <div className="message-list" aria-busy={isLoading || isSubmitting} onScroll={onMessageListScroll} ref={messageListRef}>
+      <div className="message-list" aria-busy={isLoading || isSubmitting} ref={messageListRef}>
         {isLoading ? <div className="message-list__state">Loading</div> : null}
         {!isLoading && sortedMessages.length === 0 ? (
           <div className="message-list__state">No messages</div>

@@ -44,7 +44,7 @@ Started in Phase 2:
 - Frontend domain API client for projects, graphs, nodes, and edges.
 - Minimal workspace manager for switching, creating, and editing projects and graphs through existing CRUD boundaries.
 - Active project and graph selection persisted with URL query parameters and localStorage for local/demo use.
-- Union Find / Path Compression demo seeding happens only when no project exists.
+- System Design Prep / Design a URL Shortener demo seeding happens only when no project exists.
 - Manual node creation.
 - Manual edge creation.
 - Node movement with layout persistence.
@@ -97,8 +97,8 @@ Started in Phase 3:
 - Manual edge gestures that do not land on another node side handle show a clear local error instead of silently disappearing.
 - Branch edge labels inherit the source highlight color, matching the highlight and child branch node. Branch edges should target the nearest side of the child node. Edge visibility should follow a focus-plus-context rule: edges related to the currently focused node are emphasized; unrelated edges are dimmed and their labels are hidden so dense graphs remain readable. Focused branch edges may use lightweight obstacle-aware routing around other node cards when a direct curve would be hidden by overlapping nodes. Manual edges and non-focused branch edges can keep simple bezier routing in v0.
 - Temporary text selections that have not been branched yet should clear when the user clicks outside the selected assistant message or inline Branch action.
-- The right sidebar acts as a secondary read-only inspector instead of the primary ask/branch surface, and its width can be adjusted for reading longer AI responses.
-- The read-only inspector appears only when a node is selected. The expanded canvas node and inspector keep a lightweight synchronized reading position by message anchor, and inspector highlights use the same deterministic colors as canvas highlights.
+- The right sidebar inspector is removed from v0. The expanded canvas node is the primary reading, asking, highlighting, and branching surface.
+- Expanded nodes should open at a readable size and support a lightweight maximize/restore control so the node itself can act as the focused reading surface. Live bidirectional scroll sync with a secondary reader is deferred; explicit jump actions are preferred until a debounced reader-sync design is proven smooth.
 - A branch node's context chip can navigate back to the source highlight that created the branch when source-highlight metadata is available.
 - The UI can show the current backend-selected AI provider/model as read-only status. It must not expose a user-controlled model picker in v0.
 - Node deletion uses an in-app confirmation dialog instead of the browser's native confirm prompt.
@@ -166,7 +166,7 @@ Not implemented in Phase 3:
 - A user can edit the active project title, active project description, and active graph title.
 - The active project and graph survive browser refresh through URL query parameters and localStorage.
 - If the requested project or graph no longer exists, the UI falls back to a valid project and graph.
-- The Union Find / Path Compression demo project and graph are seeded only when the backend has no projects.
+- The System Design Prep / Design a URL Shortener demo project and graph are seeded only when the backend has no projects.
 - A user can create a project and graph.
 - A user can create a root conversation node.
 - A user can ask AI a question inside the node.
@@ -225,7 +225,7 @@ All created records must persist after refresh. If any part fails, the operation
 - Better node collapse, expand, and focus-path behavior.
 - Search across graphs, nodes, and messages.
 - Versioned KnowFlow JSON export/import.
-- Onboarding sample graph for learning Union Find / Path Compression for coding interviews.
+- Onboarding sample graph for designing a URL shortener in a system design interview.
 - Improved AI error handling with retry.
 - Token estimates or basic token usage tracking.
 - Basic graph-level summaries or node summaries.
@@ -244,7 +244,7 @@ All created records must persist after refresh. If any part fails, the operation
 ### Acceptance Criteria
 
 - A demo user can understand the product in under 3 minutes.
-- The Union Find / Path Compression seeded graph makes the branch-from-selection workflow obvious.
+- The URL shortener seeded graph makes the branch-from-selection workflow obvious.
 - Context chips make AI behavior understandable.
 - Exported data can be imported without losing graph, node, edge, message, highlight, and run references.
 - A user can recover from common AI failures without losing work.

@@ -31,17 +31,18 @@ test.afterAll(async () => {
 test('protects the canvas ask, branch, and refresh workflow', async ({ page }) => {
   await test.step('load an empty workspace and let the frontend seed the demo graph', async () => {
     await page.goto('/');
-    await expect(page.getByLabel('Graph title')).toHaveValue('Union Find / Path Compression');
-    await expect(page.getByTestId('conversation-node')).toHaveCount(0);
+    await expect(page.getByLabel('Project title')).toHaveValue('System Design Prep');
+    await expect(page.getByLabel('Graph title')).toHaveValue('Design a URL Shortener');
+    await expect(page.getByTestId('conversation-node')).toHaveCount(7);
   });
 
   await test.step('create a root conversation node and ask the stub provider', async () => {
     await page.getByRole('button', { name: /^Node$/ }).click();
 
-    const sourceNode = page.getByTestId('conversation-node').first();
+    const sourceNode = page.getByTestId('conversation-node').filter({ hasText: 'Conversation 8' }).first();
     await expect(sourceNode).toBeVisible();
     await sourceNode.click();
-    await expect(sourceNode.getByLabel('Node title')).toHaveValue('Conversation 1');
+    await expect(sourceNode.getByLabel('Node title')).toHaveValue('Conversation 8');
     const askInput = page.getByLabel('Ask about this node');
     await expect(askInput).toBeVisible();
     await askInput.fill(prompt);
@@ -52,7 +53,7 @@ test('protects the canvas ask, branch, and refresh workflow', async ({ page }) =
   });
 
   await test.step('select exact assistant text and branch from the inline action', async () => {
-    const sourceNode = page.getByTestId('conversation-node').first();
+    const sourceNode = page.getByTestId('conversation-node').filter({ hasText: 'Conversation 8' }).first();
     const assistantMessage = sourceNode.getByTestId('canvas-message-content').filter({ hasText: 'Stub response' }).first();
 
     await selectTextInLocator(assistantMessage, selectedText);
@@ -79,9 +80,9 @@ test('protects the canvas ask, branch, and refresh workflow', async ({ page }) =
       where: { selectedTextSnapshot: selectedText },
     });
 
-    expect(await prisma.node.count()).toBe(2);
-    expect(await prisma.message.count({ where: { role: MessageRole.USER } })).toBe(1);
-    expect(await prisma.message.count({ where: { role: MessageRole.ASSISTANT } })).toBe(1);
+    expect(await prisma.node.count()).toBe(9);
+    expect(await prisma.message.count({ where: { role: MessageRole.USER } })).toBe(2);
+    expect(await prisma.message.count({ where: { role: MessageRole.ASSISTANT } })).toBe(2);
     expect(await prisma.highlight.count({ where: { selectedTextSnapshot: selectedText } })).toBe(1);
     expect(
       await prisma.edge.count({
@@ -109,7 +110,7 @@ test('protects the canvas ask, branch, and refresh workflow', async ({ page }) =
     await expect(childNode).toBeVisible();
     await expect(childNode).toContainText(`Branch context: ${selectedText}`);
 
-    const sourceNode = page.getByTestId('conversation-node').filter({ hasText: 'Conversation 1' }).first();
+    const sourceNode = page.getByTestId('conversation-node').filter({ hasText: 'Conversation 8' }).first();
     await sourceNode.click();
     await expect(page.getByTestId('branch-highlight').filter({ hasText: selectedText }).first()).toBeVisible();
   });

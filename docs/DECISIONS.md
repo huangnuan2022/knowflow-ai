@@ -42,12 +42,12 @@ This file records major product and architecture decisions. Update it whenever a
 
 ### 2026-04-30: Make Canvas Nodes The Primary Conversation Surface
 
-- Decision: Selected canvas nodes should expand into an inline conversation surface where users can read messages, ask follow-up questions, highlight assistant text, and branch from that selection. The right sidebar is a secondary inspector, not the main workflow surface.
-- Reason: KnowFlow's product wedge is visual learning flow. If the user must leave the canvas to ask or branch, the app feels like a chatbot with a decorative graph rather than a graph-based tutor workspace.
-- Tradeoff: Expanded nodes are more complex to render, and large conversations need collapse, summary, and scrolling behavior to avoid clutter.
+- Decision: Selected canvas nodes should expand into an inline conversation surface where users can read messages, ask follow-up questions, highlight assistant text, and branch from that selection. Remove the right sidebar inspector from v0 and let the expanded node act as the focused reader, with a lightweight maximize/restore control.
+- Reason: KnowFlow's product wedge is visual learning flow. If the user must leave the canvas to ask, branch, or read comfortably, the app feels like a chatbot with a decorative graph rather than a graph-based tutor workspace. The sidebar also duplicated node rendering and introduced fragile scroll synchronization.
+- Tradeoff: Expanded nodes need more careful size, focus, and canvas-overlap behavior, and users lose a secondary reading pane in v0.
 - Simpler MVP alternative: Keep all conversation and branching actions in a right-side panel.
-- Future scalable alternative: Multiple node display modes, focus-path reading, progressive message virtualization, and richer inline Markdown/code selection anchors.
-- Revisit trigger: Users find expanded nodes too cluttered, or canvas performance suffers before the 30-node v0 fixture.
+- Future scalable alternative: Multiple node display modes, focus-path reading, progressive message virtualization, and an optional secondary reader that does not require live bidirectional scroll sync.
+- Revisit trigger: Users find expanded nodes too cluttered, need side-by-side reading, or canvas performance suffers before the 30-node v0 fixture.
 
 ### 2026-04-30: Use React Flow / xyflow For MVP Canvas Rendering
 
@@ -130,11 +130,11 @@ This file records major product and architecture decisions. Update it whenever a
 - Future scalable alternative: Versioned message editing with highlight-anchor migration.
 - Revisit trigger: Users need message editing to clean up learning nodes or correct AI outputs.
 
-### 2026-04-30: Seed First Demo With Union Find And Path Compression
+### 2026-04-30: Seed First Demo With A URL Shortener System Design Scenario
 
-- Decision: The first seeded demo topic is learning Union Find / Path Compression for coding interviews.
-- Reason: It is technical, compact, interview-relevant, and naturally produces branchable subtopics.
-- Tradeoff: The demo emphasizes algorithm learning more than system design or research workflows.
+- Decision: The first seeded demo topic is designing a URL shortener for a system design interview. The backend creates a deterministic persisted demo with a `System Design Prep` project, `Design a URL Shortener` graph, a fixed root prompt and assistant answer, and branchable highlights for short-code generation, database schema, cache-aside strategy, redirect latency, rate limiting, and analytics.
+- Reason: The URL shortener scenario is interview-relevant, naturally graph-shaped, and better demonstrates KnowFlow's learning-path value across multiple architecture subtopics than a single algorithm walkthrough.
+- Tradeoff: The demo is hand-authored rather than generated live by AI, so it is less spontaneous but far more stable for local setup, testing, and reviewer demos.
 - Simpler MVP alternative: No seeded demo.
 - Future scalable alternative: Multiple seeded graphs for algorithms, databases, system design, and AI concepts.
 - Revisit trigger: User testing shows a different topic explains the product faster.

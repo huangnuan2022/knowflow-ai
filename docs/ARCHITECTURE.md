@@ -41,22 +41,22 @@ Current frontend artifacts:
 
 - `frontend/src/lib/domain.ts` defines frontend domain DTOs separate from React Flow types.
 - `frontend/src/lib/reactFlowAdapter.ts` maps KnowFlow domain nodes and edges into React Flow nodes, edge handles, and edges.
-- `frontend/src/lib/api.ts` calls backend domain endpoints and seeds a local demo project/graph when none exists.
+- `frontend/src/lib/api.ts` calls backend domain endpoints and asks the backend demo-seed endpoint to create a persisted local demo when no project exists.
 - `frontend/src/lib/textSelection.ts` reads plain-text DOM selection offsets for v0 branch creation.
 - `frontend/src/components/ConversationNode.tsx` renders the React Flow node shell, editable title and summary fields, collapsed branch-point previews, expanded inline conversation threads, node-local ask controls, inline text selection, branch actions, resize controls, branch highlight handles, and branch-highlight jump actions.
 - `frontend/src/components/EditableEdge.tsx` renders graph edges and supports lightweight label editing for manual relationship edges.
-- `frontend/src/components/ConversationPanel.tsx` renders a secondary read-only inspector for the selected node's messages, persisted highlights, and child branch context. The inspector width is user-resizable and stored in local browser state.
+- `frontend/src/components/ConversationPanel.tsx` is no longer mounted in v0. The expanded canvas node is the primary reader, ask surface, and branch surface.
 - `frontend/src/App.tsx` owns canvas state, manual node creation, manual edge creation, layout persistence, and selected-node panel wiring.
 
 Canvas-first interaction rule:
 
 - The topbar owns the minimal v0 workspace manager: switch project, switch graph, create project, create graph, and edit the active project/graph metadata through existing backend CRUD boundaries.
 - Active project and graph selection is frontend navigation state, not authorization state. For v0 it can be persisted in URL query parameters plus localStorage so refreshes and shared local URLs reopen the same graph.
-- The Union Find / Path Compression seeded demo should be created only when the backend has no projects. New user-created projects may get a blank starter graph, but should not receive demo content.
+- The System Design Prep / Design a URL Shortener seeded demo should be created only when the backend has no projects. New user-created projects may get a blank starter graph, but should not receive demo content.
 - Switching projects or graphs should clear node focus and fit the whole graph into view with a readable maximum zoom, rather than opening on a single oversized node.
 - The expanded canvas node is the primary place to read, ask, select AI response text, and branch.
-- The right sidebar should not be required for the core branch workflow; it appears only when a node is selected, acts as an alternative reader/inspector, and can be widened for reading longer AI responses.
-- The expanded canvas node and inspector may synchronize by message anchor and approximate scroll ratio so long answers remain readable in either surface without making the inspector the primary editing or branching UI.
+- The right sidebar inspector is removed from v0. It duplicated the expanded node, created layout pressure, and made scroll/state coordination more fragile. The expanded canvas node now owns reading, asking, highlighting, branching, and branch-context navigation.
+- Expanded nodes should be large enough to read directly and can be maximized/restored like a lightweight window. Keep explicit navigation actions, such as branch context jumping back to the source highlight, instead of live scroll synchronization.
 - The collapsed canvas node should be a compact navigation object: title, summary, and branch points only. Message text, inline highlights, ask controls, and title/summary editing are reserved for the expanded/focused node so collapsed cards remain easy to drag and scan.
 - Collapsed branch-point lists should keep normal chip sizing and spacing. The list should scroll only when the current node size cannot fit its branch points, and resizing a collapsed node larger should reveal more chips without stretching the gaps.
 - Expanded/focused state should be driven by KnowFlow's `selectedNodeId`, not by transient React Flow selection changes. This prevents drag, resize, or internal selection events from accidentally rendering expanded conversation controls inside a collapsed node.
@@ -70,7 +70,7 @@ Canvas-first interaction rule:
 - Child branch context should be collapsed by default inside expanded nodes, with a one-click reveal. It is important context, but it should not compete with the active conversation. The selected source text that created a branch is branch context, not node summary; node summary is reserved for user-authored notes.
 - Branch context chips may act as provenance navigation back to the source highlight that created the branch. This should use stored branch edge and highlight metadata rather than re-searching by selected text.
 - Highlights should use deterministic accent colors in v0. Branch edges, branch edge labels, and child branch nodes inherit the source highlight color so the visual path stays traceable without adding a color-picker workflow yet.
-- The inspector should reuse the same deterministic highlight colors as the canvas so the user can recognize the same source selection across reading surfaces.
+- Any future secondary reader should reuse the same deterministic highlight colors as the canvas so the user can recognize the same source selection across reading surfaces.
 - After creating a branch, keep the source node selected and expanded, then fit the source and child node into view. Selecting the child immediately hides the source highlight and makes the branch feel disconnected.
 - Manual edges are allowed for non-branch peer relationships between node-level side handles and may have editable labels and delete controls. Nodes expose manual handles on all four sides in both collapsed and expanded states, and a manual edge gesture may start from any side and finish on any other node side. The frontend normalizes that gesture into an undirected node-level relationship; the backend should not infer semantic direction from which side the user dragged from. Persisted manual edges are rendered from the closest source/target sides based on node positions. They should remain visually and semantically separate from branch edges. Branch points should not be manual connection handles. Branch edge labels represent selected source text and should not be freely edited in v0. Failed manual-edge gestures should show a clear local error instead of silently disappearing.
 - MVP branch and manual edges use simple bezier curves rather than orthogonal smooth-step routing by default. This keeps lines feeling less snapped together without adding custom bend-point editing or a full edge router. Branch edges should attach to the source highlight when visible and target the nearest side of the child branch node. Edge visibility should use a focus-plus-context rule: edges related to the currently focused node are emphasized and may use a higher edge layer; unrelated branch and manual edges are dimmed and should not show labels while a node is focused. Focused branch edges may use a lightweight obstacle-aware route around unrelated node rectangles when a direct curve would be hidden by overlapping nodes. This avoids both extremes: all lines hidden behind cards, or all lines cutting through readable node content.
@@ -110,6 +110,7 @@ Use a NestJS + TypeScript modular monolith. Suggested modules:
 - Highlights
 - AI Runs
 - Context Builder
+- Demo Seed
 - Export/Import later, starting in v1
 
 Each module should have clear ownership. The app can deploy as one backend process.
@@ -129,6 +130,7 @@ Current Phase 1 routes:
 | Nodes | `POST /api/nodes`, `GET /api/nodes?graphId=...`, `GET /api/nodes/:id`, `PATCH /api/nodes/:id`, `DELETE /api/nodes/:id` | Node title, summary, type, and layout metadata are editable. |
 | Edges | `POST /api/edges`, `GET /api/edges?graphId=...`, `GET /api/edges/:id`, `PATCH /api/edges/:id`, `DELETE /api/edges/:id` | Edge type distinguishes manual, branch, and future graph-link edges. |
 | Branches | `POST /api/branches/from-selection` | Transactional command for the core branch workflow. |
+| Demo Seed | `POST /api/demo-seed/system-design` | Idempotently creates the persisted System Design Prep / Design a URL Shortener demo graph for empty local/demo databases. |
 | Messages | `POST /api/messages`, `GET /api/messages?nodeId=...`, `GET /api/messages/:id`, `DELETE /api/messages/:id` | Messages are immutable in v0; no update route. |
 | Highlights | `POST /api/highlights`, `GET /api/highlights?messageId=...`, `GET /api/highlights/:id`, `DELETE /api/highlights/:id` | Highlights are anchored selections; no update route. |
 | Runs | `POST /api/runs`, `POST /api/runs/:id/execute`, `GET /api/runs/defaults`, `GET /api/runs?nodeId=...&status=...`, `GET /api/runs/:id`, `PATCH /api/runs/:id`, `DELETE /api/runs/:id` | Run records and non-streaming execution through the provider-neutral adapter boundary. `GET /api/runs/defaults` exposes only the backend-selected provider/model for read-only UI status. |

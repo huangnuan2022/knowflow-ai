@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { BranchesModule } from './modules/branches/branches.module';
+import { DemoSeedModule } from './modules/demo-seed/demo-seed.module';
 import { EdgesModule } from './modules/edges/edges.module';
 import { GraphsModule } from './modules/graphs/graphs.module';
 import { HealthModule } from './modules/health/health.module';
@@ -18,6 +19,7 @@ import { UsersModule } from './modules/users/users.module';
     ConfigModule.forRoot({ isGlobal: true }),
     PrismaModule,
     HealthModule,
+    DemoSeedModule,
     BranchesModule,
     UsersModule,
     ProjectsModule,

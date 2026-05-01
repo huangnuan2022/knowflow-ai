@@ -1,5 +1,17 @@
 import { Handle, NodeProps, NodeResizer, Position, ResizeParams, useUpdateNodeInternals } from '@xyflow/react';
-import { Bot, ChevronDown, ChevronRight, GitBranch, Loader2, MessageSquareText, Send, Trash2, UserRound } from 'lucide-react';
+import {
+  Bot,
+  ChevronDown,
+  ChevronRight,
+  GitBranch,
+  Loader2,
+  Maximize2,
+  MessageSquareText,
+  Minimize2,
+  Send,
+  Trash2,
+  UserRound,
+} from 'lucide-react';
 import {
   CSSProperties,
   FormEvent,
@@ -25,7 +37,6 @@ import {
   manualNodeHandleId,
   ManualHandleSide,
 } from '../lib/reactFlowAdapter';
-import { findReaderSyncAnchor, scrollReaderToAnchor } from '../lib/readerSync';
 import { readTextSelectionWithin, TextSelectionRange } from '../lib/textSelection';
 
 type InlineSelectionDraft = TextSelectionRange & {
@@ -76,10 +87,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
   const [error, setError] = useState<string | null>(null);
   const nodeRef = useRef<HTMLElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
-  const isApplyingReaderSyncRef = useRef(false);
-  const lastReaderSyncKeyRef = useRef('');
   const scrollFrameRef = useRef<number | null>(null);
-  const readerSyncFrameRef = useRef<number | null>(null);
   const updateNodeInternals = useUpdateNodeInternals();
   const nodeAccentStyle = useMemo(
     () => (nodeData.accentColor ? branchColorStyle(nodeData.accentColor, 'node') : undefined),
@@ -125,9 +133,6 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
     () => () => {
       if (scrollFrameRef.current !== null) {
         window.cancelAnimationFrame(scrollFrameRef.current);
-      }
-      if (readerSyncFrameRef.current !== null) {
-        window.cancelAnimationFrame(readerSyncFrameRef.current);
       }
     },
     [],
@@ -270,21 +275,6 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
     document.addEventListener('pointerdown', onPointerDown, true);
     return () => document.removeEventListener('pointerdown', onPointerDown, true);
   }, [onHighlightMenuChange, openHighlightMenu]);
-
-  useEffect(() => {
-    const anchor = nodeData.readerSyncAnchor;
-    if (!isExpanded || !anchor || anchor.nodeId !== id || anchor.source === 'canvas' || !threadRef.current) {
-      return;
-    }
-
-    isApplyingReaderSyncRef.current = true;
-    scrollReaderToAnchor(threadRef.current, '[data-reader-message-id]', anchor);
-    const timeoutId = window.setTimeout(() => {
-      isApplyingReaderSyncRef.current = false;
-    }, 160);
-
-    return () => window.clearTimeout(timeoutId);
-  }, [id, isExpanded, nodeData.readerSyncAnchor]);
 
   const saveTitle = useCallback(async () => {
     const nextTitle = titleDraft.trim();
@@ -463,8 +453,9 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
 
       setSelectionDraft(null);
       onHighlightMenuChange(null);
+      setActiveBranchHighlightId(result.highlight.id);
       window.getSelection()?.removeAllRanges();
-      await nodeData.onBranchCreated?.(result.childNode.id, id);
+      await nodeData.onBranchCreated?.(result.childNode.id, id, result.highlight.id);
     } catch (branchError) {
       setError(branchError instanceof Error ? branchError.message : 'Unable to create branch');
     } finally {
@@ -498,8 +489,9 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
 
         setSelectionDraft(null);
         onHighlightMenuChange(null);
+        setActiveBranchHighlightId(result.highlight.id);
         window.getSelection()?.removeAllRanges();
-        await nodeData.onBranchCreated?.(result.childNode.id, id);
+        await nodeData.onBranchCreated?.(result.childNode.id, id, result.highlight.id);
       } catch (branchError) {
         setError(branchError instanceof Error ? branchError.message : 'Unable to create branch');
       } finally {
@@ -556,29 +548,10 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
       if (activeBranchHighlightId || revealedHighlightId) {
         updateNodeInternals(id);
       }
-
-      if (isExpanded && threadRef.current && !isApplyingReaderSyncRef.current) {
-        const anchor = findReaderSyncAnchor(
-          threadRef.current,
-          '[data-reader-message-id]',
-          id,
-          'canvas',
-          Date.now(),
-        );
-        if (anchor) {
-          const syncKey = `${anchor.messageId}:${Math.round(anchor.ratio * 20)}`;
-          if (syncKey !== lastReaderSyncKeyRef.current) {
-            lastReaderSyncKeyRef.current = syncKey;
-            nodeData.onReaderSyncAnchorChanged?.(anchor);
-          }
-        }
-      }
     });
   }, [
     activeBranchHighlightId,
     id,
-    isExpanded,
-    nodeData,
     onHighlightMenuChange,
     openHighlightMenu,
     refreshHighlightAnchorStates,
@@ -606,8 +579,8 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
         handleClassName="node-resizer-handle nodrag nopan"
         isVisible
         lineClassName="node-resizer-line nodrag nopan"
-        minHeight={isExpanded ? 420 : 180}
-        minWidth={isExpanded ? 520 : 300}
+        minHeight={isExpanded ? (nodeData.isMaximized ? 680 : 560) : 180}
+        minWidth={isExpanded ? (nodeData.isMaximized ? 920 : 680) : 300}
         onResizeEnd={onResizeEnd}
       />
       {manualHandleSides.map((side) => (
@@ -653,16 +626,32 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
             <h2>{nodeData.title}</h2>
           )}
         </div>
-        <button
-          aria-label={`Delete ${nodeData.title}`}
-          className="node-action-button nodrag nopan"
-          disabled={isDeleting}
-          onClick={onDelete}
-          title="Delete node"
-          type="button"
-        >
-          {isDeleting ? <Loader2 className="spin" size={14} /> : <Trash2 size={14} />}
-        </button>
+        <div className="conversation-node__actions">
+          {isExpanded ? (
+            <button
+              aria-label={nodeData.isMaximized ? 'Restore node size' : 'Maximize node'}
+              className="node-action-button node-action-button--neutral nodrag nopan"
+              onClick={(event) => {
+                event.stopPropagation();
+                nodeData.onNodeMaximizeToggled?.(id);
+              }}
+              title={nodeData.isMaximized ? 'Restore node size' : 'Maximize node'}
+              type="button"
+            >
+              {nodeData.isMaximized ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+            </button>
+          ) : null}
+          <button
+            aria-label={`Delete ${nodeData.title}`}
+            className="node-action-button nodrag nopan"
+            disabled={isDeleting}
+            onClick={onDelete}
+            title="Delete node"
+            type="button"
+          >
+            {isDeleting ? <Loader2 className="spin" size={14} /> : <Trash2 size={14} />}
+          </button>
+        </div>
       </div>
 
       {isExpanded ? (

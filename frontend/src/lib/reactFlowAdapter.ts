@@ -1,6 +1,5 @@
 import { Edge, MarkerType, Node } from '@xyflow/react';
 import { DomainEdge, DomainNode, EdgeType, GraphBundle, Highlight, Message, MessageRole, NodeLayout } from './domain';
-import { ReaderSyncAnchor } from './readerSync';
 
 export type NodeMessagePreview = {
   id: string;
@@ -46,16 +45,15 @@ export type EdgeAvoidRect = {
 };
 
 export type ConversationNodeActions = {
-  onBranchCreated?: (childNodeId: string, sourceNodeId: string) => Promise<void> | void;
+  onBranchCreated?: (childNodeId: string, sourceNodeId: string, sourceHighlightId?: string) => Promise<void> | void;
   onBranchSourceSelected?: (sourceNodeId: string, highlightId: string) => void;
   onBranchTargetSelected?: (targetNodeId: string, sourceNodeId: string) => void;
   onNodeDetailsChanged?: (nodeId: string, input: { title?: string; summary?: string | null }) => Promise<void> | void;
   onNodeDeleteRequested?: (nodeId: string) => Promise<void> | void;
   onNodeMessagesChanged?: () => Promise<void> | void;
+  onNodeMaximizeToggled?: (nodeId: string) => void;
   onNodeResizeEnded?: (nodeId: string, layout: Required<NodeLayout>) => Promise<void> | void;
-  onReaderSyncAnchorChanged?: (anchor: ReaderSyncAnchor) => void;
   onVisibleBranchHighlightsChanged?: (nodeId: string, visibleHighlightIds: string[]) => void;
-  readerSyncAnchor?: ReaderSyncAnchor | null;
 };
 
 export type ConversationNodeData = Record<string, unknown> & {
@@ -65,20 +63,20 @@ export type ConversationNodeData = Record<string, unknown> & {
   branchTargetsByHighlightId: Record<string, BranchTargetPreview[]>;
   highlightsByMessageId: Record<string, Highlight[]>;
   isExpanded: boolean;
+  isMaximized?: boolean;
   layout?: NodeLayout | null;
   messages: Message[];
   messageCount: number;
   messagePreviews: NodeMessagePreview[];
-  onBranchCreated?: (childNodeId: string, sourceNodeId: string) => Promise<void> | void;
+  onBranchCreated?: (childNodeId: string, sourceNodeId: string, sourceHighlightId?: string) => Promise<void> | void;
   onBranchSourceSelected?: (sourceNodeId: string, highlightId: string) => void;
   onBranchTargetSelected?: (targetNodeId: string, sourceNodeId: string) => void;
   onNodeDetailsChanged?: (nodeId: string, input: { title?: string; summary?: string | null }) => Promise<void> | void;
   onNodeDeleteRequested?: (nodeId: string) => Promise<void> | void;
   onNodeMessagesChanged?: () => Promise<void> | void;
+  onNodeMaximizeToggled?: (nodeId: string) => void;
   onNodeResizeEnded?: (nodeId: string, layout: Required<NodeLayout>) => Promise<void> | void;
-  onReaderSyncAnchorChanged?: (anchor: ReaderSyncAnchor) => void;
   onVisibleBranchHighlightsChanged?: (nodeId: string, visibleHighlightIds: string[]) => void;
-  readerSyncAnchor?: ReaderSyncAnchor | null;
   summary?: string | null;
   title: string;
   type: string;
@@ -144,18 +142,27 @@ export function toReactFlowNodes(
   actions: ConversationNodeActions = {},
   selectedNodeId?: string | null,
   revealHighlightRequest?: { highlightId: string; nodeId: string; requestId: number } | null,
+  maximizedNodeId?: string | null,
+  canvasViewportSize: { height: number; width: number } = { height: 0, width: 0 },
 ): ConversationFlowNode[] {
   const branchTargetsByHighlightId = groupBranchTargetsByHighlightId(bundle?.edges ?? [], nodes);
   const branchHighlightsByNodeId = groupBranchHighlightsByNodeId(bundle?.edges ?? [], branchTargetsByHighlightId);
 
   return nodes.map((node, index) => {
     const isSelected = node.id === selectedNodeId;
+    const isMaximized = isSelected && node.id === maximizedNodeId;
     const branchHighlights = branchHighlightsByNodeId[node.id] ?? [];
     const collapsedHeight = collapsedNodeAutoHeight(node, branchHighlights.length);
-    const width = Math.max(numberOrDefault(node.layout?.width, isSelected ? 560 : 340), isSelected ? 520 : 300);
+    const maximizedSize = maximizedNodeSize(canvasViewportSize);
+    const expandedMinWidth = isMaximized ? maximizedSize.width : 760;
+    const expandedMinHeight = isMaximized ? maximizedSize.height : 640;
+    const width = Math.max(
+      numberOrDefault(node.layout?.width, isSelected ? expandedMinWidth : 340),
+      isSelected ? expandedMinWidth : 300,
+    );
     const height = Math.max(
-      numberOrDefault(node.layout?.height, isSelected ? 520 : collapsedHeight),
-      isSelected ? 420 : collapsedHeight,
+      numberOrDefault(node.layout?.height, isSelected ? expandedMinHeight : collapsedHeight),
+      isSelected ? expandedMinHeight : collapsedHeight,
     );
 
     return {
@@ -165,6 +172,7 @@ export function toReactFlowNodes(
         branchTargetsByHighlightId,
         highlightsByMessageId: bundle?.highlightsByMessageId ?? {},
         isExpanded: isSelected,
+        isMaximized,
         layout: {
           height,
           width,
@@ -179,11 +187,10 @@ export function toReactFlowNodes(
         onBranchTargetSelected: actions.onBranchTargetSelected,
         onNodeDetailsChanged: actions.onNodeDetailsChanged,
         onNodeDeleteRequested: actions.onNodeDeleteRequested,
+        onNodeMaximizeToggled: actions.onNodeMaximizeToggled,
         onNodeMessagesChanged: actions.onNodeMessagesChanged,
         onNodeResizeEnded: actions.onNodeResizeEnded,
-        onReaderSyncAnchorChanged: actions.onReaderSyncAnchorChanged,
         onVisibleBranchHighlightsChanged: actions.onVisibleBranchHighlightsChanged,
-        readerSyncAnchor: actions.readerSyncAnchor,
         accentColor: findInboundBranchColor(bundle?.edges, node.id),
         summary: node.summary,
         title: node.title,
@@ -202,7 +209,7 @@ export function toReactFlowNodes(
         width,
       },
       type: 'conversation',
-      zIndex: isSelected ? 1000 : 100,
+      zIndex: isMaximized ? 1400 : isSelected ? 1000 : 100,
     };
   });
 }
@@ -416,6 +423,14 @@ function collapsedNodeAutoHeight(node: DomainNode, branchHighlightCount: number)
   const branchListHeight = branchHighlightCount > 0 ? 24 + visibleBranchCount * 39 : 24;
 
   return Math.max(180, 78 + summaryHeight + branchListHeight);
+}
+
+function maximizedNodeSize(canvasViewportSize: { height: number; width: number }) {
+  const focusZoom = 0.86;
+  return {
+    height: Math.max(760, Math.round((canvasViewportSize.height * 0.88) / focusZoom)),
+    width: Math.max(1040, Math.round((canvasViewportSize.width * 0.88) / focusZoom)),
+  };
 }
 
 function findInboundBranchContext(edges: DomainEdge[] | undefined, nodeId: string) {
