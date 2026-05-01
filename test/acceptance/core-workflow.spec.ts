@@ -40,7 +40,7 @@ test.afterAll(async () => {
 
 test('protects the canvas ask, branch, and refresh workflow', async ({ page }) => {
   await test.step('load an empty workspace and let the frontend seed the demo graph', async () => {
-    await page.goto('/');
+    await page.goto('/app');
     await expect(page.getByLabel('Project title')).toHaveValue('System Design Prep');
     await expect(page.getByLabel('Graph title')).toHaveValue('Design a URL Shortener');
     await expect(page.getByTestId('conversation-node')).toHaveCount(SYSTEM_DESIGN_DEMO_NODES.length);

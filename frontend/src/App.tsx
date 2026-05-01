@@ -17,7 +17,18 @@ import {
   useNodesState,
   useReactFlow,
 } from '@xyflow/react';
-import { AlertTriangle, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowRight,
+  GitBranch,
+  MessageSquare,
+  Network,
+  Plus,
+  RefreshCw,
+  Sparkles,
+  Trash2,
+  X,
+} from 'lucide-react';
 import {
   ChangeEvent,
   KeyboardEvent,
@@ -75,10 +86,156 @@ const GRAPH_ENTRY_FIT_VIEW_OPTIONS = {
 const MAXIMIZED_NODE_FOCUS_ZOOM = 0.86;
 
 export function App() {
+  const currentPath = window.location.pathname.replace(/\/+$/, '') || '/';
+
+  if (currentPath === '/') {
+    return <LandingPage />;
+  }
+
   return (
     <ReactFlowProvider>
       <KnowFlowCanvas />
     </ReactFlowProvider>
+  );
+}
+
+function LandingPage() {
+  return (
+    <main className="landing-page">
+      <section className="landing-hero">
+        <nav className="landing-nav" aria-label="Landing navigation">
+          <a className="landing-brand" href="/">
+            <Network size={24} />
+            <span>KnowFlow</span>
+          </a>
+          <a className="landing-nav__link" href="https://github.com/huangnuan2022/knowflow-ai" rel="noreferrer" target="_blank">
+            GitHub
+          </a>
+        </nav>
+
+        <div className="landing-hero__scene" aria-hidden="true">
+          <div className="landing-hero-node landing-hero-node--one">AI response</div>
+          <div className="landing-hero-node landing-hero-node--two">database schema</div>
+          <div className="landing-hero-node landing-hero-node--three">cache-aside strategy</div>
+          <div className="landing-hero-line landing-hero-line--one" />
+          <div className="landing-hero-line landing-hero-line--two" />
+        </div>
+
+        <div className="landing-hero__copy">
+          <p className="landing-eyebrow">Built with Codex for technical learners</p>
+          <h1>KnowFlow — Turn AI chats into branching learning graphs</h1>
+          <p className="landing-hero__subtitle">
+            Ask AI inside a visual node, click or highlight a confusing concept in the answer, and branch into a focused child conversation that stays connected on the canvas.
+          </p>
+          <div className="landing-hero__actions">
+            <a className="landing-button landing-button--primary" href="/app">
+              Open Workspace
+              <ArrowRight size={18} />
+            </a>
+            <a className="landing-button landing-button--secondary" href="#workflow-preview">
+              View Demo
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-section landing-section--preview" id="workflow-preview" aria-labelledby="workflow-preview-title">
+        <div className="landing-section__header">
+          <p className="landing-eyebrow">Workflow preview</p>
+          <h2 id="workflow-preview-title">Branch from the exact concept that needs explanation</h2>
+        </div>
+        <div className="landing-preview" aria-label="KnowFlow workflow preview">
+          <div className="landing-preview__node landing-preview__node--parent">
+            <div className="landing-preview__node-header">
+              <MessageSquare size={18} />
+              <span>AI answer node</span>
+            </div>
+            <p>
+              A URL shortener needs API design, <mark>short-code generation</mark>, database schema,
+              caching, rate limiting, and analytics.
+            </p>
+            <button className="landing-preview__branch" type="button">
+              <GitBranch size={15} />
+              Branch
+            </button>
+          </div>
+          <div className="landing-preview__edge" aria-hidden="true">
+            <span>short-code generation</span>
+          </div>
+          <div className="landing-preview__node landing-preview__node--child">
+            <div className="landing-preview__node-header">
+              <MessageSquare size={18} />
+              <span>Focused child node</span>
+            </div>
+            <p>Explore Base62 IDs, random tokens, collision checks, and which option is best for interviews.</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-section" aria-labelledby="how-it-works">
+        <div className="landing-section__header">
+          <p className="landing-eyebrow">How it works</p>
+          <h2 id="how-it-works">A learning path you can see</h2>
+        </div>
+        <div className="landing-steps">
+          {[
+            ['Ask AI inside a node', 'Start a local conversation directly on the canvas.'],
+            ['Click or highlight a concept', 'Turn confusing terms into explicit learning anchors.'],
+            ['Branch into a focused child conversation', 'Keep the exact selected text as context.'],
+            ['Build a visual learning graph', 'Review how your understanding expanded over time.'],
+          ].map(([title, copy], index) => (
+            <article className="landing-step" key={title}>
+              <span>{index + 1}</span>
+              <h3>{title}</h3>
+              <p>{copy}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing-section landing-section--split" aria-labelledby="why-it-matters">
+        <div>
+          <p className="landing-eyebrow">Why it matters</p>
+          <h2 id="why-it-matters">Linear AI chats are hard to study from</h2>
+        </div>
+        <div className="landing-copy-stack">
+          <p>
+            Long chat histories bury the path a learner took. Complex technical topics naturally branch into APIs, data models, caching, reliability, cost, and tradeoffs.
+          </p>
+          <p>
+            KnowFlow keeps those branches visible, so the graph becomes part of the learning memory instead of a decorative whiteboard.
+          </p>
+        </div>
+      </section>
+
+      <section className="landing-section landing-section--stack" aria-labelledby="stack">
+        <div className="landing-section__header">
+          <p className="landing-eyebrow">Built with Codex</p>
+          <h2 id="stack">Product idea, architecture, and implementation shaped through Codex</h2>
+        </div>
+        <div className="landing-stack">
+          <span>React</span>
+          <span>TypeScript</span>
+          <span>React Flow / xyflow</span>
+          <span>NestJS</span>
+          <span>Prisma</span>
+          <span>PostgreSQL</span>
+          <span>OpenAI Responses API</span>
+          <span>Playwright</span>
+        </div>
+      </section>
+
+      <footer className="landing-footer">
+        <div>
+          <Sparkles size={20} />
+          <span>Ready to explore a topic as a graph?</span>
+        </div>
+        <a className="landing-button landing-button--primary" href="/app">
+          Open Workspace
+          <ArrowRight size={18} />
+        </a>
+      </footer>
+    </main>
   );
 }
 

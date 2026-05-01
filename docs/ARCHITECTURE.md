@@ -381,7 +381,7 @@ OpenAI setup for local development:
 5. Store the key only in local `.env` as `OPENAI_API_KEY`; do not paste it into frontend code, screenshots, commits, docs, or chat.
 6. Start the backend with `AI_PROVIDER="openai"` and `AI_MODEL="gpt-5.4-mini"`, then ask inside a node and inspect the Run record if needed.
 
-Frontend local development may use `http://localhost:5173` or `http://127.0.0.1:5173`. The backend allows both origins by default; set a comma-separated `CORS_ORIGIN` value when using another Vite port or host.
+Frontend local development may use `http://localhost:5173` or `http://127.0.0.1:5173`. The backend allows both origins by default; set a comma-separated `CORS_ORIGIN` value when using another Vite port, host, or a deployed frontend origin.
 
 Frontend runtime configuration:
 
@@ -389,7 +389,7 @@ Frontend runtime configuration:
 VITE_API_BASE_URL="http://localhost:3000/api"
 ```
 
-Frontend runtime config only points the browser at the backend API. Real provider secrets and real provider/model selection stay on the backend; the frontend must not receive or store `OPENAI_API_KEY`, and `VITE_*` values must not be used as a trust boundary for paid model execution.
+Frontend runtime config only points the browser at the backend API. For production builds, set `VITE_API_BASE_URL` to the public backend API URL when frontend and backend are deployed on separate origins. If it is omitted in a production build, the frontend falls back to same-origin `/api`, which is useful only when the backend is reverse-proxied under the same public domain. Real provider secrets and real provider/model selection stay on the backend; the frontend must not receive or store `OPENAI_API_KEY`, and `VITE_*` values must not be used as a trust boundary for paid model execution.
 
 `npm run db:up` starts the local Docker PostgreSQL service. It maps container port `5432` to host port `15432` to avoid colliding with common local PostgreSQL installs.
 

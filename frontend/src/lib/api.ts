@@ -13,7 +13,11 @@ import {
   RunExecutionResult,
 } from './domain';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:3000/api';
+const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ??
+  (import.meta.env.PROD
+    ? '/api'
+    : `${window.location.protocol}//${window.location.hostname}:3000/api`);
 const PROMPT_TEMPLATE_VERSION = 'knowflow-tutor-v0';
 const CONTEXT_POLICY_VERSION = 'current-node-selected-ancestor-v0';
 
