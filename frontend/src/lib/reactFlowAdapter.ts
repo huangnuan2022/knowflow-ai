@@ -24,7 +24,9 @@ export type BranchTargetPreview = {
 export type BranchContextPreview = {
   color?: BranchColor;
   highlightId?: string;
+  learningPath: string[];
   sourceNodeId: string;
+  sourceText: string;
   text: string;
 };
 
@@ -177,7 +179,7 @@ export function toReactFlowNodes(
 
     return {
       data: {
-        branchContext: findInboundBranchContext(bundle?.edges, node.id),
+        branchContext: findInboundBranchContext(bundle?.edges, nodes, node.id),
         branchHighlights,
         branchTargetsByHighlightId,
         highlightsByMessageId: bundle?.highlightsByMessageId ?? {},
@@ -473,18 +475,48 @@ function maximizedNodeSize(canvasViewportSize: { height: number; width: number }
   };
 }
 
-function findInboundBranchContext(edges: DomainEdge[] | undefined, nodeId: string) {
+function findInboundBranchContext(edges: DomainEdge[] | undefined, nodes: DomainNode[], nodeId: string) {
   const inboundBranch = edges?.find((edge) => edge.targetNodeId === nodeId && edge.type === 'BRANCH');
   if (!inboundBranch?.label) {
     return undefined;
   }
 
+  const sourceText = inboundBranch.label;
+
   return {
     color: inboundBranch.sourceHighlightId ? colorForHighlightId(inboundBranch.sourceHighlightId) : undefined,
     highlightId: inboundBranch.sourceHighlightId ?? undefined,
+    learningPath: buildBranchLearningPath(edges ?? [], nodes, nodeId),
     sourceNodeId: inboundBranch.sourceNodeId,
-    text: inboundBranch.label,
+    sourceText,
+    text: sourceText,
   };
+}
+
+function buildBranchLearningPath(edges: DomainEdge[], nodes: DomainNode[], nodeId: string) {
+  const nodeTitlesById = new Map(nodes.map((node) => [node.id, node.title]));
+  const inboundBranchesByTargetId = new Map(
+    edges
+      .filter((edge) => edge.type === 'BRANCH' && edge.label)
+      .map((edge) => [edge.targetNodeId, edge]),
+  );
+  const branchLabels: string[] = [];
+  const visitedNodeIds = new Set<string>();
+  let currentNodeId = nodeId;
+
+  while (!visitedNodeIds.has(currentNodeId)) {
+    visitedNodeIds.add(currentNodeId);
+    const inboundBranch = inboundBranchesByTargetId.get(currentNodeId);
+    if (!inboundBranch?.label) {
+      break;
+    }
+
+    branchLabels.unshift(truncateText(inboundBranch.label, 72));
+    currentNodeId = inboundBranch.sourceNodeId;
+  }
+
+  const rootTitle = nodeTitlesById.get(currentNodeId);
+  return rootTitle ? [rootTitle, ...branchLabels] : branchLabels;
 }
 
 export function colorForHighlightId(highlightId: string): BranchColor {

@@ -18,6 +18,7 @@ import {
 import {
   CSSProperties,
   FormEvent,
+  Fragment,
   KeyboardEvent,
   MouseEvent,
   useCallback,
@@ -733,7 +734,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
                         : undefined
                     }
                   >
-                    {truncateText(nodeData.branchContext.text, 88)}
+                    {truncateText(nodeData.branchContext.sourceText, 88)}
                   </strong>
                 </div>
                 <div className="conversation-node__context-actions">
@@ -760,7 +761,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
                   ) : null}
                   <button
                     aria-expanded={isContextExpanded}
-                    aria-label={isContextExpanded ? 'Hide branch context' : 'Show branch context'}
+                    aria-label={isContextExpanded ? 'Hide AI context' : 'Show AI context'}
                     className="conversation-node__context-expand"
                     onClick={(event) => {
                       event.stopPropagation();
@@ -769,12 +770,33 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
                     onPointerDown={(event) => event.stopPropagation()}
                     type="button"
                   >
-                    <span>{isContextExpanded ? 'Hide context' : 'Show context'}</span>
+                    <span>{isContextExpanded ? 'Hide AI context' : 'Show AI context'}</span>
                     {isContextExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
                   </button>
                 </div>
               </div>
-              {isContextExpanded ? <p>{nodeData.branchContext.text}</p> : null}
+              {isContextExpanded ? (
+                <div className="conversation-node__ai-context">
+                  <div className="conversation-node__ai-context-item">
+                    <span>Highlight source</span>
+                    <p>{nodeData.branchContext.sourceText}</p>
+                  </div>
+                  <div className="conversation-node__ai-context-item">
+                    <span>Learning path</span>
+                    <div
+                      aria-label={nodeData.branchContext.learningPath.join(' to ')}
+                      className="conversation-node__learning-path"
+                    >
+                      {nodeData.branchContext.learningPath.map((pathItem, index) => (
+                        <Fragment key={`${pathItem}-${index}`}>
+                          {index > 0 ? <ChevronRight aria-hidden="true" size={13} /> : null}
+                          <span>{pathItem}</span>
+                        </Fragment>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : null}
             </section>
           ) : null}
           <div
