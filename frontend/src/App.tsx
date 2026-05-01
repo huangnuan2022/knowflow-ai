@@ -261,6 +261,7 @@ function KnowFlowCanvas() {
   const [projectDescriptionDraft, setProjectDescriptionDraft] = useState('');
   const [graphTitleDraft, setGraphTitleDraft] = useState('');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(() => new Set());
   const [maximizedNodeId, setMaximizedNodeId] = useState<string | null>(null);
   const [canvasViewportSize, setCanvasViewportSize] = useState({ height: 0, width: 0 });
   const [pendingDeleteNodeIds, setPendingDeleteNodeIds] = useState<string[]>([]);
@@ -310,6 +311,7 @@ function KnowFlowCanvas() {
 
   const clearCanvasFocus = useCallback(() => {
     setSelectedNodeId(null);
+    setExpandedNodeIds(new Set());
     setMaximizedNodeId(null);
     setPendingBranchView(null);
     setPendingFocusNodeId(null);
@@ -382,6 +384,16 @@ function KnowFlowCanvas() {
   useEffect(() => {
     if (selectedNodeId && bundle && !bundle.nodes.some((node) => node.id === selectedNodeId)) {
       setSelectedNodeId(null);
+    }
+
+    if (bundle) {
+      const nodeIds = new Set(bundle.nodes.map((node) => node.id));
+      setExpandedNodeIds((currentExpandedNodeIds) => {
+        const nextExpandedNodeIds = new Set(
+          [...currentExpandedNodeIds].filter((nodeId) => nodeIds.has(nodeId)),
+        );
+        return nextExpandedNodeIds.size === currentExpandedNodeIds.size ? currentExpandedNodeIds : nextExpandedNodeIds;
+      });
     }
   }, [bundle, selectedNodeId]);
 
@@ -693,9 +705,11 @@ function KnowFlowCanvas() {
           [sourceNodeId]: [sourceHighlightId],
         }));
       }
+      setExpandedNodeIds((currentExpandedNodeIds) => new Set(currentExpandedNodeIds).add(sourceNodeId));
       await refresh();
       setSelectedNodeId(childNodeId);
-      setPendingBranchView({ childNodeId, sourceNodeId });
+      setPendingBranchView(null);
+      setPendingFocusNodeId(childNodeId);
     },
     [refresh],
   );
@@ -863,9 +877,11 @@ function KnowFlowCanvas() {
           onNodeMaximizeToggled,
         },
         selectedNodeId,
+        expandedNodeIds,
         highlightRevealRequest,
         maximizedNodeId,
         canvasViewportSize,
+        visibleBranchHighlightIdsByNodeId,
       ),
     );
   }, [
@@ -880,10 +896,12 @@ function KnowFlowCanvas() {
     onNodeResizeEnded,
     onNodeMaximizeToggled,
     onVisibleBranchHighlightsChanged,
+    expandedNodeIds,
     highlightRevealRequest,
     maximizedNodeId,
     selectedNodeId,
     setNodes,
+    visibleBranchHighlightIdsByNodeId,
   ]);
 
   useEffect(() => {
@@ -1171,6 +1189,7 @@ function KnowFlowCanvas() {
             nodeClickDistance={5}
             onNodeClick={(_, node) => {
               if (!isNodeDraggingRef.current) {
+                setExpandedNodeIds(new Set());
                 setSelectedNodeId(node.id);
                 setPendingFocusNodeId(node.id);
               }

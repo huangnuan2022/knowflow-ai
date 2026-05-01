@@ -1,8 +1,11 @@
 import { Handle, NodeProps, NodeResizer, Position, ResizeParams, useUpdateNodeInternals } from '@xyflow/react';
 import {
+  ArrowUpLeft,
   Bot,
   ChevronDown,
   ChevronRight,
+  Check,
+  Copy,
   GitBranch,
   Loader2,
   Maximize2,
@@ -84,10 +87,12 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
   const [openHighlightMenu, setOpenHighlightMenu] = useState<HighlightMenuState | null>(null);
   const [highlightAnchorStates, setHighlightAnchorStates] = useState<Record<string, HighlightAnchorState>>({});
   const [revealedHighlightId, setRevealedHighlightId] = useState<string | null>(null);
+  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const nodeRef = useRef<HTMLElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
   const scrollFrameRef = useRef<number | null>(null);
+  const copyFeedbackTimeoutRef = useRef<number | null>(null);
   const updateNodeInternals = useUpdateNodeInternals();
   const nodeAccentStyle = useMemo(
     () => (nodeData.accentColor ? branchColorStyle(nodeData.accentColor, 'node') : undefined),
@@ -133,6 +138,9 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
     () => () => {
       if (scrollFrameRef.current !== null) {
         window.cancelAnimationFrame(scrollFrameRef.current);
+      }
+      if (copyFeedbackTimeoutRef.current !== null) {
+        window.clearTimeout(copyFeedbackTimeoutRef.current);
       }
     },
     [],
@@ -360,19 +368,45 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
     }
 
     const elementRect = element.getBoundingClientRect();
-    const buttonWidth = 92;
+    const toolbarWidth = 168;
     setSelectionDraft({
       ...selection,
       messageId: message.id,
       toolbarPosition: {
         left: Math.max(
           8,
-          Math.min(selection.rect.left - elementRect.left + selection.rect.width + 8, elementRect.width - buttonWidth),
+          Math.min(selection.rect.left - elementRect.left + selection.rect.width + 8, elementRect.width - toolbarWidth),
         ),
         top: Math.max(0, selection.rect.top - elementRect.top - 4),
       },
     });
   }, []);
+
+  const copyText = useCallback(
+    async (text: string, feedbackKey: string, options?: { clearSelection?: boolean }) => {
+      try {
+        await copyTextToClipboard(text);
+        setCopiedKey(feedbackKey);
+        if (copyFeedbackTimeoutRef.current !== null) {
+          window.clearTimeout(copyFeedbackTimeoutRef.current);
+        }
+        copyFeedbackTimeoutRef.current = window.setTimeout(() => {
+          setCopiedKey((currentKey) => (currentKey === feedbackKey ? null : currentKey));
+          copyFeedbackTimeoutRef.current = null;
+        }, 1200);
+
+        if (options?.clearSelection) {
+          window.setTimeout(() => {
+            setSelectionDraft(null);
+            window.getSelection()?.removeAllRanges();
+          }, 450);
+        }
+      } catch {
+        setError('Unable to copy text');
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!selectionDraft) {
@@ -386,6 +420,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
       }
 
       if (
+        target.closest('.inline-selection-menu') ||
         target.closest('.inline-branch-button') ||
         target.closest('.canvas-message__content') ||
         target.closest('.highlight-branch-menu') ||
@@ -688,44 +723,56 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
               className={`conversation-node__context ${isContextExpanded ? 'is-expanded' : ''} nodrag nopan nowheel`}
             >
               <div className="conversation-node__context-row">
-                <button
-                  className="conversation-node__context-toggle"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    if (nodeData.branchContext?.highlightId) {
-                      nodeData.onBranchSourceSelected?.(
-                        nodeData.branchContext.sourceNodeId,
-                        nodeData.branchContext.highlightId,
-                      );
-                      return;
+                <div className="conversation-node__context-source-summary">
+                  <span>Created from highlight</span>
+                  <strong
+                    className="conversation-node__context-chip"
+                    style={
+                      nodeData.branchContext.color
+                        ? branchColorStyle(nodeData.branchContext.color, 'highlight')
+                        : undefined
                     }
-
-                    setIsContextExpanded((current) => !current);
-                  }}
-                  onPointerDown={(event) => event.stopPropagation()}
-                  title={
-                    nodeData.branchContext.highlightId
-                      ? 'Show the source highlight that created this branch'
-                      : 'Show branch context'
-                  }
-                  type="button"
-                >
-                  <span>Branch context</span>
-                  <strong>{truncateText(nodeData.branchContext.text, 88)}</strong>
-                </button>
-                <button
-                  aria-expanded={isContextExpanded}
-                  aria-label={isContextExpanded ? 'Hide branch context' : 'Show branch context'}
-                  className="conversation-node__context-expand"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setIsContextExpanded((current) => !current);
-                  }}
-                  onPointerDown={(event) => event.stopPropagation()}
-                  type="button"
-                >
-                  {isContextExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                </button>
+                  >
+                    {truncateText(nodeData.branchContext.text, 88)}
+                  </strong>
+                </div>
+                <div className="conversation-node__context-actions">
+                  {nodeData.branchContext.highlightId ? (
+                    <button
+                      className="conversation-node__context-source-button"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        if (!nodeData.branchContext?.highlightId) {
+                          return;
+                        }
+                        nodeData.onBranchSourceSelected?.(
+                          nodeData.branchContext.sourceNodeId,
+                          nodeData.branchContext.highlightId,
+                        );
+                      }}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      title="Return to the source highlight that created this branch"
+                      type="button"
+                    >
+                      <ArrowUpLeft size={14} />
+                      Back to source
+                    </button>
+                  ) : null}
+                  <button
+                    aria-expanded={isContextExpanded}
+                    aria-label={isContextExpanded ? 'Hide branch context' : 'Show branch context'}
+                    className="conversation-node__context-expand"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setIsContextExpanded((current) => !current);
+                    }}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    type="button"
+                  >
+                    <span>{isContextExpanded ? 'Hide context' : 'Show context'}</span>
+                    {isContextExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                  </button>
+                </div>
               </div>
               {isContextExpanded ? <p>{nodeData.branchContext.text}</p> : null}
             </section>
@@ -753,6 +800,8 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
                   highlightAnchorStates={highlightAnchorStates}
                   revealedHighlightId={revealedHighlightId}
                   selectionDraft={selectionDraft?.messageId === message.id ? selectionDraft : null}
+                  copiedKey={copiedKey}
+                  onCopyText={copyText}
                   sourceNodeId={id}
                 />
               ))
@@ -926,7 +975,11 @@ function CollapsedNodeBody({
       {editableSummary ? <p className="conversation-node__summary-preview">{editableSummary}</p> : null}
       {!editableSummary && nodeData.branchContext ? (
         <p className="conversation-node__branch-context-preview">
-          <span>Branch context:</span> {truncateText(nodeData.branchContext.text, 96)}
+          <span>
+            {nodeData.branchContext.highlightId ? <ArrowUpLeft size={11} /> : null}
+            From highlight:
+          </span>{' '}
+          {truncateText(nodeData.branchContext.text, 96)}
         </p>
       ) : null}
       {hasBranchHighlights ? (
@@ -1048,6 +1101,7 @@ function BranchPointTargetMenu({
 
 function CanvasMessage({
   branchTargetsByHighlightId,
+  copiedKey,
   highlightAnchorStates,
   highlights,
   isBranching,
@@ -1055,6 +1109,7 @@ function CanvasMessage({
   onAssistantSelection,
   onBranch,
   onBranchFromHighlight,
+  onCopyText,
   openHighlightMenu,
   onHighlightMenuChange,
   onBranchTargetSelected,
@@ -1063,6 +1118,7 @@ function CanvasMessage({
   sourceNodeId,
 }: {
   branchTargetsByHighlightId: Record<string, BranchTargetPreview[]>;
+  copiedKey: string | null;
   highlightAnchorStates: Record<string, HighlightAnchorState>;
   highlights: Highlight[];
   isBranching: boolean;
@@ -1070,6 +1126,7 @@ function CanvasMessage({
   onAssistantSelection: (message: Message, element: HTMLElement) => void;
   onBranch: () => void;
   onBranchFromHighlight: (highlight: Highlight) => void;
+  onCopyText: (text: string, feedbackKey: string, options?: { clearSelection?: boolean }) => Promise<void>;
   openHighlightMenu: HighlightMenuState | null;
   onHighlightMenuChange: (menu: HighlightMenuState | null) => void;
   onBranchTargetSelected?: (targetNodeId: string, sourceNodeId: string) => void;
@@ -1080,6 +1137,8 @@ function CanvasMessage({
   const contentRef = useRef<HTMLDivElement>(null);
   const isAssistant = message.role === 'ASSISTANT';
   const Icon = isAssistant ? Bot : UserRound;
+  const messageCopyKey = `message:${message.id}`;
+  const selectionCopyKey = `selection:${message.id}`;
   const branchBackedHighlights = useMemo(
     () => highlights.filter((highlight) => (branchTargetsByHighlightId[highlight.id]?.length ?? 0) > 0),
     [branchTargetsByHighlightId, highlights],
@@ -1102,6 +1161,24 @@ function CanvasMessage({
         </span>
       ) : null}
       <div className="canvas-message__body">
+        {isAssistant ? (
+          <button
+            aria-label={copiedKey === messageCopyKey ? 'Assistant response copied' : 'Copy assistant response'}
+            className="canvas-message__copy-button"
+            onClick={(event) => {
+              event.stopPropagation();
+              void onCopyText(message.content, messageCopyKey);
+            }}
+            onMouseDown={(event) => {
+              event.preventDefault();
+              event.stopPropagation();
+            }}
+            title={copiedKey === messageCopyKey ? 'Copied' : 'Copy response'}
+            type="button"
+          >
+            {copiedKey === messageCopyKey ? <Check size={13} /> : <Copy size={13} />}
+          </button>
+        ) : null}
         <div
           className={`canvas-message__content ${isAssistant ? 'canvas-message__content--selectable' : ''}`}
           data-testid="canvas-message-content"
@@ -1117,7 +1194,9 @@ function CanvasMessage({
             highlightAnchorStates={highlightAnchorStates}
             highlights={isAssistant ? branchBackedHighlights : []}
             isBranching={isBranching}
+            copiedKey={copiedKey}
             onBranchFromHighlight={onBranchFromHighlight}
+            onCopyText={onCopyText}
             openHighlightMenu={openHighlightMenu}
             onHighlightMenuChange={onHighlightMenuChange}
             onBranchTargetSelected={onBranchTargetSelected}
@@ -1126,25 +1205,40 @@ function CanvasMessage({
             withHandles={isAssistant}
           />
           {selectionDraft ? (
-            <button
-              className="inline-branch-button"
-              data-testid="inline-branch-button"
-              disabled={isBranching}
-              onClick={(event) => {
-                event.stopPropagation();
-                void onBranch();
-              }}
+            <span
+              className="inline-selection-menu"
+              style={{ left: selectionDraft.toolbarPosition.left, top: selectionDraft.toolbarPosition.top }}
               onMouseDown={(event) => {
                 event.preventDefault();
                 event.stopPropagation();
               }}
               onMouseUp={(event) => event.stopPropagation()}
-              style={{ left: selectionDraft.toolbarPosition.left, top: selectionDraft.toolbarPosition.top }}
-              type="button"
             >
-              {isBranching ? <Loader2 className="spin" size={13} /> : <GitBranch size={13} />}
-              Branch
-            </button>
+              <button
+                className="inline-branch-button"
+                data-testid="inline-branch-button"
+                disabled={isBranching}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void onBranch();
+                }}
+                type="button"
+              >
+                {isBranching ? <Loader2 className="spin" size={13} /> : <GitBranch size={13} />}
+                Branch
+              </button>
+              <button
+                className="inline-selection-menu__copy"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  void onCopyText(selectionDraft.selectedTextSnapshot, selectionCopyKey, { clearSelection: true });
+                }}
+                type="button"
+              >
+                {copiedKey === selectionCopyKey ? <Check size={13} /> : <Copy size={13} />}
+                {copiedKey === selectionCopyKey ? 'Copied' : 'Copy'}
+              </button>
+            </span>
           ) : null}
         </div>
       </div>
@@ -1155,11 +1249,13 @@ function CanvasMessage({
 function HighlightedContent({
   branchTargetsByHighlightId,
   content,
+  copiedKey,
   draftRange,
   highlightAnchorStates,
   highlights,
   isBranching,
   onBranchFromHighlight,
+  onCopyText,
   openHighlightMenu,
   onHighlightMenuChange,
   onBranchTargetSelected,
@@ -1169,11 +1265,13 @@ function HighlightedContent({
 }: {
   branchTargetsByHighlightId: Record<string, BranchTargetPreview[]>;
   content: string;
+  copiedKey: string | null;
   draftRange?: InlineSelectionDraft | null;
   highlightAnchorStates: Record<string, HighlightAnchorState>;
   highlights: Highlight[];
   isBranching: boolean;
   onBranchFromHighlight: (highlight: Highlight) => void;
+  onCopyText: (text: string, feedbackKey: string, options?: { clearSelection?: boolean }) => Promise<void>;
   openHighlightMenu: HighlightMenuState | null;
   onHighlightMenuChange: (menu: HighlightMenuState | null) => void;
   onBranchTargetSelected?: (targetNodeId: string, sourceNodeId: string) => void;
@@ -1197,6 +1295,8 @@ function HighlightedContent({
     const branchTargets = branchTargetsByHighlightId[range.id] ?? [];
     const canOpenBranchMenu = !range.isDraft;
     const isMenuOpen = openHighlightMenu?.id === range.id;
+    const highlightText = range.selectedTextSnapshot || content.slice(range.startOffset, range.endOffset);
+    const highlightCopyKey = `highlight:${range.id}`;
     const shouldRenderInlineHandle = withHandles && !range.isDraft && highlightAnchorStates[range.id]?.visibility !== 'above' && highlightAnchorStates[range.id]?.visibility !== 'below';
 
     parts.push(
@@ -1267,6 +1367,7 @@ function HighlightedContent({
           <BranchHighlightMenu
             branchTargets={branchTargets}
             color={range.color}
+            copied={copiedKey === highlightCopyKey}
             isBranching={isBranching}
             onBranchFromHighlight={() => {
               onHighlightMenuChange(null);
@@ -1278,6 +1379,9 @@ function HighlightedContent({
             onJumpToBranch={(targetNodeId) => {
               onHighlightMenuChange(null);
               onBranchTargetSelected?.(targetNodeId, sourceNodeId);
+            }}
+            onCopyHighlight={() => {
+              void onCopyText(highlightText, highlightCopyKey);
             }}
             position={openHighlightMenu}
           />
@@ -1297,17 +1401,21 @@ function HighlightedContent({
 function BranchHighlightMenu({
   branchTargets,
   color,
+  copied,
   isBranching,
   onBranchFromHighlight,
   onClose,
+  onCopyHighlight,
   onJumpToBranch,
   position,
 }: {
   branchTargets: BranchTargetPreview[];
   color?: BranchColor;
+  copied: boolean;
   isBranching: boolean;
   onBranchFromHighlight: () => void;
   onClose: () => void;
+  onCopyHighlight: () => void;
   onJumpToBranch: (targetNodeId: string) => void;
   position: HighlightMenuState | null;
 }) {
@@ -1345,6 +1453,10 @@ function BranchHighlightMenu({
       <button disabled={isBranching} onClick={onBranchFromHighlight} type="button">
         {isBranching ? <Loader2 className="spin" size={13} /> : <GitBranch size={13} />}
         New branch from this highlight
+      </button>
+      <button onClick={onCopyHighlight} type="button">
+        {copied ? <Check size={13} /> : <Copy size={13} />}
+        {copied ? 'Copied highlight' : 'Copy highlight'}
       </button>
       <button className="highlight-branch-menu__secondary" onClick={onClose} type="button">
         Close
@@ -1425,6 +1537,29 @@ function branchColorStyle(color: BranchColor, scope: 'highlight' | 'node'): CSSP
     '--highlight-soft-bg': color.softBackground,
     '--highlight-text': color.text,
   } as CSSProperties;
+}
+
+async function copyTextToClipboard(text: string) {
+  if (navigator.clipboard?.writeText && window.isSecureContext) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', 'true');
+  textarea.style.position = 'fixed';
+  textarea.style.left = '-9999px';
+  textarea.style.top = '0';
+  document.body.appendChild(textarea);
+  textarea.focus();
+  textarea.select();
+
+  try {
+    document.execCommand('copy');
+  } finally {
+    document.body.removeChild(textarea);
+  }
 }
 
 function areHighlightAnchorStatesEqual(
