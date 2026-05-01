@@ -1318,7 +1318,7 @@ button {
   color: inherit;
   cursor: pointer;
   font: inherit;
-  max-width: 100%;
+  max-width: min(280px, 100%);
   overflow: hidden;
   padding: 3px 7px;
   text-overflow: ellipsis;
@@ -1565,7 +1565,7 @@ button {
 }
 
 .highlight-branch-menu button:disabled {
-  cursor: not-allowed;
+  cursor: progress;
   opacity: 0.6;
 }
 
@@ -1620,7 +1620,7 @@ button {
 }
 
 .inline-branch-button:disabled {
-  cursor: not-allowed;
+  cursor: progress;
   opacity: 0.65;
 }
 
@@ -1925,6 +1925,13 @@ button {
   white-space: nowrap;
 }
 
+.editable-edge-label.is-branch.is-focused .editable-edge-label__button,
+.editable-edge-label.is-branch.is-related-to-selected .editable-edge-label__button,
+.editable-edge-label.is-branch:hover .editable-edge-label__button,
+.editable-edge-label.is-branch:focus-within .editable-edge-label__button {
+  max-width: min(360px, 42vw);
+}
+
 .editable-edge-label__button:hover,
 .editable-edge-label__button:focus {
   border-color: var(--edge-label-accent);
@@ -1963,7 +1970,7 @@ button {
 }
 
 .editable-edge-label__delete:disabled {
-  cursor: not-allowed;
+  cursor: progress;
   opacity: 0.55;
 }
 

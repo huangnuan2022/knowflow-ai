@@ -517,7 +517,7 @@ function buildBranchLearningPath(edges: DomainEdge[], nodes: DomainNode[], nodeI
     }
 
     branchPathItems.unshift({
-      label: truncateText(inboundBranch.label, 72),
+      label: inboundBranch.label,
       nodeId: currentNodeId,
     });
     currentNodeId = inboundBranch.sourceNodeId;
