@@ -127,13 +127,18 @@ function LandingPage() {
           <p className="landing-hero__subtitle">
             Ask AI inside a visual node, click or highlight a confusing concept in the answer, and branch into a focused child conversation that stays connected on the canvas.
           </p>
+          <div className="landing-proof-pills" aria-label="KnowFlow demo capabilities">
+            <span>Seeded system-design demo</span>
+            <span>Persistent graph workspace</span>
+            <span>Real AI backend ready</span>
+          </div>
           <div className="landing-hero__actions">
             <a className="landing-button landing-button--primary" href="/app">
               Open Workspace
               <ArrowRight size={18} />
             </a>
             <a className="landing-button landing-button--secondary" href="#workflow-preview">
-              View Demo
+              See the Workflow
             </a>
           </div>
         </div>
@@ -143,6 +148,9 @@ function LandingPage() {
         <div className="landing-section__header">
           <p className="landing-eyebrow">Workflow preview</p>
           <h2 id="workflow-preview-title">Branch from the exact concept that needs explanation</h2>
+          <p>
+            The live workspace opens with a URL shortener system-design graph, so judges can immediately try the core path: ask AI, highlight a concept, and create a connected child node.
+          </p>
         </div>
         <div className="landing-preview" aria-label="KnowFlow workflow preview">
           <div className="landing-preview__node landing-preview__node--parent">
@@ -272,6 +280,7 @@ function KnowFlowCanvas() {
   const isNodeDraggingRef = useRef(false);
   const manualConnectionStartedRef = useRef(false);
   const manualConnectionCompletedRef = useRef(false);
+  const hasLoadedInitialBundleRef = useRef(false);
   const lastAutoFitGraphIdRef = useRef<string | null>(null);
   const canvasFrameRef = useRef<HTMLElement>(null);
 
@@ -331,6 +340,10 @@ function KnowFlowCanvas() {
   }, [workspaceSelection]);
 
   useEffect(() => {
+    if (hasLoadedInitialBundleRef.current) {
+      return;
+    }
+    hasLoadedInitialBundleRef.current = true;
     void refresh();
   }, [refresh]);
 
@@ -664,6 +677,7 @@ function KnowFlowCanvas() {
           : currentBundle,
       );
       setSelectedNodeId(node.id);
+      setPendingFocusNodeId(node.id);
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : 'Unable to create node');
     } finally {
@@ -680,7 +694,7 @@ function KnowFlowCanvas() {
         }));
       }
       await refresh();
-      setSelectedNodeId(sourceNodeId);
+      setSelectedNodeId(childNodeId);
       setPendingBranchView({ childNodeId, sourceNodeId });
     },
     [refresh],
@@ -965,7 +979,7 @@ function KnowFlowCanvas() {
   const onConnectEnd = useCallback<OnConnectEnd>(() => {
     window.setTimeout(() => {
       if (manualConnectionStartedRef.current && !manualConnectionCompletedRef.current) {
-        setError('Drop on another node side handle to create a manual relationship edge.');
+        setError('Drop on another node edge handle to create a manual link.');
       }
       manualConnectionStartedRef.current = false;
       manualConnectionCompletedRef.current = false;
@@ -979,11 +993,11 @@ function KnowFlowCanvas() {
         return;
       }
       if (connection.source === connection.target) {
-        setError('Manual relationship edges need two different nodes.');
+        setError('Manual links need two different nodes.');
         return;
       }
       if (!isManualHandleId(connection.sourceHandle) || !isManualHandleId(connection.targetHandle)) {
-        setError('Create manual relationship edges from node side handles.');
+        setError('Start and end manual links on node edge handles.');
         return;
       }
 

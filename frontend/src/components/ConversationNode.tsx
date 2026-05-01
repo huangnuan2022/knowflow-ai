@@ -273,7 +273,16 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
     };
 
     document.addEventListener('pointerdown', onPointerDown, true);
-    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onHighlightMenuChange(null);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('keydown', onKeyDown, true);
+    };
   }, [onHighlightMenuChange, openHighlightMenu]);
 
   const saveTitle = useCallback(async () => {
@@ -536,6 +545,11 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
   const onScrollableContentScroll = useCallback(() => {
     if (openHighlightMenu) {
       onHighlightMenuChange(null);
+      return;
+    }
+
+    if (!activeBranchHighlightId && !revealedHighlightId) {
+      return;
     }
 
     if (scrollFrameRef.current !== null) {
@@ -886,7 +900,16 @@ function CollapsedNodeBody({
     };
 
     document.addEventListener('pointerdown', onPointerDown, true);
-    return () => document.removeEventListener('pointerdown', onPointerDown, true);
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpenBranchPointMenu(null);
+      }
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      document.removeEventListener('pointerdown', onPointerDown, true);
+      document.removeEventListener('keydown', onKeyDown, true);
+    };
   }, [openBranchPointMenu]);
 
   useEffect(
@@ -1427,20 +1450,35 @@ function areHighlightAnchorStatesEqual(
 
 function menuPositionForRect(rect: DOMRect) {
   const menuWidth = 244;
-  const menuHeight = 190;
+  const menuHeight = 218;
   const viewportPadding = 12;
-  const rightSideLeft = rect.right + 8;
-  const leftSideLeft = rect.left - menuWidth - 8;
-  const left =
-    rightSideLeft + menuWidth <= window.innerWidth - viewportPadding
-      ? rightSideLeft
-      : Math.max(viewportPadding, leftSideLeft);
-  const top = Math.min(
-    Math.max(viewportPadding, rect.bottom + 6),
-    Math.max(viewportPadding, window.innerHeight - menuHeight - viewportPadding),
-  );
+  const maxLeft = Math.max(viewportPadding, window.innerWidth - menuWidth - viewportPadding);
+  const rightSideLeft = rect.right + 10;
+  const leftSideLeft = rect.left - menuWidth - 10;
 
-  return { left, top };
+  let left = rect.left;
+  if (rightSideLeft + menuWidth <= window.innerWidth - viewportPadding) {
+    left = rightSideLeft;
+  } else if (leftSideLeft >= viewportPadding) {
+    left = leftSideLeft;
+  }
+
+  const belowTop = rect.bottom + 8;
+  const aboveTop = rect.top - menuHeight - 8;
+  const maxTop = Math.max(viewportPadding, window.innerHeight - menuHeight - viewportPadding);
+  let top = rect.bottom + 8;
+  if (belowTop + menuHeight <= window.innerHeight - viewportPadding) {
+    top = belowTop;
+  } else if (aboveTop >= viewportPadding) {
+    top = aboveTop;
+  } else {
+    top = rect.top;
+  }
+
+  return {
+    left: Math.round(Math.min(Math.max(viewportPadding, left), maxLeft)),
+    top: Math.round(Math.min(Math.max(viewportPadding, top), maxTop)),
+  };
 }
 
 function getEditableSummary(summary?: string | null, branchContext?: string) {
@@ -1473,10 +1511,12 @@ function getEditableSummary(summary?: string | null, branchContext?: string) {
 }
 
 function buildChildLayout(parentLayout?: NodeLayout | null): NodeLayout {
+  const parentWidth = numberOrDefault(parentLayout?.width, 520);
+
   return {
     height: 220,
     width: 520,
-    x: numberOrDefault(parentLayout?.x, 100) + 680,
+    x: numberOrDefault(parentLayout?.x, 100) + parentWidth + 180,
     y: numberOrDefault(parentLayout?.y, 120) + 72,
   };
 }

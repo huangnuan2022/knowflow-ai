@@ -24,6 +24,8 @@ export class DemoSeedService {
     const runConfig = this.aiRunConfig.resolveRunConfig();
 
     return this.prisma.$transaction(async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('knowflow:system-design-demo-seed'))`;
+
       const existingProject = await tx.project.findFirst({
         orderBy: { createdAt: 'asc' },
         where: { title: SYSTEM_DESIGN_DEMO_PROJECT_TITLE },

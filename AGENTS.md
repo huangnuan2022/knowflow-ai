@@ -11,6 +11,7 @@ Before implementing features, read:
 - `docs/ARCHITECTURE.md`
 - `docs/DECISIONS.md`
 - `docs/TECH_DEBT.md`
+- `docs/RELEASE_PROCESS.md` before deployment, rollout, or post-submission production changes
 
 Use `docs/COMPETITIVE_REVIEW.md` when changing product positioning, canvas behavior, note-taking behavior, AI learning flows, or competitor-inspired features.
 
@@ -44,6 +45,7 @@ Do not rewrite docs unnecessarily. If no documentation update is needed, explici
 - Before making changes, check the current git status.
 - Keep changes focused and scoped to the requested task.
 - For multi-step work, state the recommended git grouping and commit message for each step.
+- After the public submission, use feature branches and preview deployments for changes before merging to production.
 - Commit completed implementation/documentation work by default unless the user asks not to commit.
 - Push completed commits by default unless the user asks not to push.
 - Before suggesting a commit, run the relevant checks.

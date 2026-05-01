@@ -113,6 +113,26 @@ button {
   max-width: 760px;
 }
 
+.landing-proof-pills {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  margin: 24px auto 0;
+  max-width: 820px;
+}
+
+.landing-proof-pills span {
+  background: #ffffff;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  color: #1e40af;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 7px 11px;
+}
+
 .landing-hero__actions {
   align-items: center;
   display: flex;
@@ -224,6 +244,13 @@ button {
   gap: 12px;
   margin-bottom: 28px;
   max-width: 760px;
+}
+
+.landing-section__header p:not(.landing-eyebrow) {
+  color: #475569;
+  font-size: 16px;
+  line-height: 1.6;
+  margin: 0;
 }
 
 .landing-section h2 {

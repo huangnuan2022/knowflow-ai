@@ -23,6 +23,19 @@ React UI
 
 The frontend renders and edits graph state. The backend owns domain rules, persistence, AI run lifecycle, and context construction.
 
+## Deployment And Release Direction
+
+The submitted public demo should be treated as a stable production deployment. Post-submission work should use feature branches and Vercel Preview deployments before merging to `main`.
+
+Current production shape:
+
+- Frontend: Vercel production domain for the landing page and `/app` workspace.
+- Backend: Railway-hosted NestJS API under the `/api` prefix.
+- Database: Railway PostgreSQL through the backend only.
+- AI secrets: backend environment variables only; frontend `VITE_*` values are not secrets.
+
+See `docs/RELEASE_PROCESS.md` for production baseline, staging guidance, smoke tests, and rollback steps.
+
 ## Frontend Direction
 
 Use React + TypeScript.

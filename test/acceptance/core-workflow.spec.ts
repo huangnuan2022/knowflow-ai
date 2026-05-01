@@ -49,9 +49,8 @@ test('protects the canvas ask, branch, and refresh workflow', async ({ page }) =
   await test.step('create a root conversation node and ask the stub provider', async () => {
     await page.getByRole('button', { name: /^Node$/ }).click();
 
-    const sourceNode = page.getByTestId('conversation-node').filter({ hasText: newConversationTitle }).first();
+    const sourceNode = page.locator('[data-testid="conversation-node"]:has(input[aria-label="Node title"])').first();
     await expect(sourceNode).toBeVisible();
-    await sourceNode.click();
     await expect(sourceNode.getByLabel('Node title')).toHaveValue(newConversationTitle);
     const askInput = page.getByLabel('Ask about this node');
     await expect(askInput).toBeVisible();
@@ -63,14 +62,18 @@ test('protects the canvas ask, branch, and refresh workflow', async ({ page }) =
   });
 
   await test.step('select exact assistant text and branch from the inline action', async () => {
-    const sourceNode = page.getByTestId('conversation-node').filter({ hasText: newConversationTitle }).first();
+    const sourceNode = page.locator('[data-testid="conversation-node"]:has(input[aria-label="Node title"])').first();
+    await expect(sourceNode.getByLabel('Node title')).toHaveValue(newConversationTitle);
     const assistantMessage = sourceNode.getByTestId('canvas-message-content').filter({ hasText: 'Stub response' }).first();
 
     await selectTextInLocator(assistantMessage, selectedText);
     await expect(sourceNode.getByTestId('inline-branch-button')).toBeVisible();
     await sourceNode.getByTestId('inline-branch-button').click();
 
-    await expect(page.getByTestId('conversation-node').filter({ hasText: `Branch: ${selectedText}` }).first()).toBeVisible();
+    const childNode = page.locator('[data-testid="conversation-node"]:has(input[aria-label="Node title"])').first();
+    await expect(page.getByLabel('Node title')).toHaveValue(`Branch: ${selectedText}`);
+    await expect(childNode).toContainText(selectedText);
+    await page.getByTestId('conversation-node').filter({ hasText: newConversationTitle }).first().click();
     await expect(page.getByTestId('branch-highlight').filter({ hasText: selectedText }).first()).toBeVisible();
   });
 
