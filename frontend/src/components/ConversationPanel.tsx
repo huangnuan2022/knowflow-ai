@@ -17,6 +17,7 @@ type ConversationPanelProps = {
   branchContext?: BranchContext;
   node?: DomainNode;
   onBranchCreated?: (childNodeId: string, sourceNodeId: string) => Promise<void> | void;
+  onBranchSourceSelected?: (sourceNodeId: string, highlightId: string) => void;
   onNodeMessagesChanged?: () => Promise<void> | void;
   onReaderSyncAnchorChanged?: (anchor: ReaderSyncAnchor) => void;
   readOnly?: boolean;
@@ -24,6 +25,7 @@ type ConversationPanelProps = {
 };
 
 type BranchContext = {
+  highlightId?: string;
   sourceNodeId: string;
   text: string;
 };
@@ -38,6 +40,7 @@ export function ConversationPanel({
   branchContext,
   node,
   onBranchCreated,
+  onBranchSourceSelected,
   onNodeMessagesChanged,
   onReaderSyncAnchorChanged,
   readOnly = false,
@@ -241,10 +244,24 @@ export function ConversationPanel({
       {error ? <div className="conversation-panel__error">{error}</div> : null}
 
       {branchContext ? (
-        <div className="context-chip" title={branchContext.text}>
+        <button
+          className="context-chip"
+          disabled={!branchContext.highlightId}
+          onClick={() => {
+            if (branchContext.highlightId) {
+              onBranchSourceSelected?.(branchContext.sourceNodeId, branchContext.highlightId);
+            }
+          }}
+          title={
+            branchContext.highlightId
+              ? 'Show the source highlight that created this branch'
+              : branchContext.text
+          }
+          type="button"
+        >
           <span>Context</span>
           <p>{branchContext.text}</p>
-        </div>
+        </button>
       ) : null}
 
       {!readOnly && selectionDraft ? (

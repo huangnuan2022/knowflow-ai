@@ -24,6 +24,7 @@ export type BranchTargetPreview = {
 
 export type BranchContextPreview = {
   color?: BranchColor;
+  highlightId?: string;
   sourceNodeId: string;
   text: string;
 };
@@ -425,6 +426,7 @@ function findInboundBranchContext(edges: DomainEdge[] | undefined, nodeId: strin
 
   return {
     color: inboundBranch.sourceHighlightId ? colorForHighlightId(inboundBranch.sourceHighlightId) : undefined,
+    highlightId: inboundBranch.sourceHighlightId ?? undefined,
     sourceNodeId: inboundBranch.sourceNodeId,
     text: inboundBranch.label,
   };

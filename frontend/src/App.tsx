@@ -987,7 +987,7 @@ function KnowFlowCanvas() {
       ) : null}
 
       <div
-        className="workspace"
+        className={`workspace ${selectedNode ? 'has-inspector' : ''}`}
         style={{ '--inspector-width': `${inspectorWidth}px` } as CSSProperties}
       >
         <section className="canvas-frame" aria-label="KnowFlow graph canvas" ref={canvasFrameRef}>
@@ -1028,22 +1028,27 @@ function KnowFlowCanvas() {
             <Controls />
           </ReactFlow>
         </section>
-        <div
-          aria-label="Resize inspector"
-          className="inspector-resize-handle"
-          onPointerDown={onInspectorResizeStart}
-          role="separator"
-          tabIndex={0}
-        />
-        <ConversationPanel
-          branchContext={selectedNodeBranchContext}
-          node={selectedNode}
-          onBranchCreated={onBranchCreated}
-          onNodeMessagesChanged={onNodeMessagesChanged}
-          onReaderSyncAnchorChanged={onReaderSyncAnchorChanged}
-          readerSyncAnchor={readerSyncAnchor}
-          readOnly
-        />
+        {selectedNode ? (
+          <>
+            <div
+              aria-label="Resize inspector"
+              className="inspector-resize-handle"
+              onPointerDown={onInspectorResizeStart}
+              role="separator"
+              tabIndex={0}
+            />
+            <ConversationPanel
+              branchContext={selectedNodeBranchContext}
+              node={selectedNode}
+              onBranchCreated={onBranchCreated}
+              onBranchSourceSelected={onBranchSourceSelected}
+              onNodeMessagesChanged={onNodeMessagesChanged}
+              onReaderSyncAnchorChanged={onReaderSyncAnchorChanged}
+              readerSyncAnchor={readerSyncAnchor}
+              readOnly
+            />
+          </>
+        ) : null}
       </div>
       {pendingDeleteNodeIds.length > 0 ? (
         <DeleteConfirmDialog
@@ -1123,6 +1128,7 @@ function findInboundBranchContext(edges: DomainEdge[] | undefined, selectedNodeI
   }
 
   return {
+    highlightId: inboundBranch.sourceHighlightId ?? undefined,
     sourceNodeId: inboundBranch.sourceNodeId,
     text: inboundBranch.label,
   };

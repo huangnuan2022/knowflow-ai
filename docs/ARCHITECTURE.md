@@ -55,7 +55,7 @@ Canvas-first interaction rule:
 - The Union Find / Path Compression seeded demo should be created only when the backend has no projects. New user-created projects may get a blank starter graph, but should not receive demo content.
 - Switching projects or graphs should clear node focus and fit the whole graph into view with a readable maximum zoom, rather than opening on a single oversized node.
 - The expanded canvas node is the primary place to read, ask, select AI response text, and branch.
-- The right sidebar should not be required for the core branch workflow; it is an alternative reader/inspector and can be widened for reading longer AI responses.
+- The right sidebar should not be required for the core branch workflow; it appears only when a node is selected, acts as an alternative reader/inspector, and can be widened for reading longer AI responses.
 - The expanded canvas node and inspector may synchronize by message anchor and approximate scroll ratio so long answers remain readable in either surface without making the inspector the primary editing or branching UI.
 - The collapsed canvas node should be a compact navigation object: title, summary, and branch points only. Message text, inline highlights, ask controls, and title/summary editing are reserved for the expanded/focused node so collapsed cards remain easy to drag and scan.
 - Collapsed branch-point lists should keep normal chip sizing and spacing. The list should scroll only when the current node size cannot fit its branch points, and resizing a collapsed node larger should reveal more chips without stretching the gaps.
@@ -68,6 +68,7 @@ Canvas-first interaction rule:
 - Persisted branch highlights and collapsed branch-point chips should jump to connected child nodes. If a single highlight has multiple child branches, the UI should show a compact branch target picker rather than choosing the first child implicitly. This keeps repeated branching from the same highlight understandable.
 - Focus navigation should center the selected target node at a readable zoom level. Branch creation is the exception: after creating a child branch, the source and child should both be fit into view so the new provenance relation is obvious.
 - Child branch context should be collapsed by default inside expanded nodes, with a one-click reveal. It is important context, but it should not compete with the active conversation. The selected source text that created a branch is branch context, not node summary; node summary is reserved for user-authored notes.
+- Branch context chips may act as provenance navigation back to the source highlight that created the branch. This should use stored branch edge and highlight metadata rather than re-searching by selected text.
 - Highlights should use deterministic accent colors in v0. Branch edges, branch edge labels, and child branch nodes inherit the source highlight color so the visual path stays traceable without adding a color-picker workflow yet.
 - The inspector should reuse the same deterministic highlight colors as the canvas so the user can recognize the same source selection across reading surfaces.
 - After creating a branch, keep the source node selected and expanded, then fit the source and child node into view. Selecting the child immediately hides the source highlight and makes the branch feel disconnected.
