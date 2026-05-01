@@ -45,6 +45,7 @@ export type EdgeAvoidRect = {
 
 export type ConversationNodeActions = {
   onBranchCreated?: (childNodeId: string, sourceNodeId: string) => Promise<void> | void;
+  onBranchSourceSelected?: (sourceNodeId: string, highlightId: string) => void;
   onBranchTargetSelected?: (targetNodeId: string, sourceNodeId: string) => void;
   onNodeDetailsChanged?: (nodeId: string, input: { title?: string; summary?: string | null }) => Promise<void> | void;
   onNodeDeleteRequested?: (nodeId: string) => Promise<void> | void;
@@ -65,6 +66,7 @@ export type ConversationNodeData = Record<string, unknown> & {
   messageCount: number;
   messagePreviews: NodeMessagePreview[];
   onBranchCreated?: (childNodeId: string, sourceNodeId: string) => Promise<void> | void;
+  onBranchSourceSelected?: (sourceNodeId: string, highlightId: string) => void;
   onBranchTargetSelected?: (targetNodeId: string, sourceNodeId: string) => void;
   onNodeDetailsChanged?: (nodeId: string, input: { title?: string; summary?: string | null }) => Promise<void> | void;
   onNodeDeleteRequested?: (nodeId: string) => Promise<void> | void;
@@ -74,6 +76,8 @@ export type ConversationNodeData = Record<string, unknown> & {
   summary?: string | null;
   title: string;
   type: string;
+  revealHighlightId?: string | null;
+  revealHighlightRequestId?: number | null;
 };
 
 export type ConversationFlowNode = Node<ConversationNodeData>;
@@ -133,6 +137,7 @@ export function toReactFlowNodes(
   bundle?: Pick<GraphBundle, 'edges' | 'highlightsByMessageId' | 'messagesByNodeId'>,
   actions: ConversationNodeActions = {},
   selectedNodeId?: string | null,
+  revealHighlightRequest?: { highlightId: string; nodeId: string; requestId: number } | null,
 ): ConversationFlowNode[] {
   const branchTargetsByHighlightId = groupBranchTargetsByHighlightId(bundle?.edges ?? [], nodes);
   const branchHighlightsByNodeId = groupBranchHighlightsByNodeId(bundle?.edges ?? [], branchTargetsByHighlightId);
@@ -164,6 +169,7 @@ export function toReactFlowNodes(
         messageCount: bundle?.messagesByNodeId[node.id]?.length ?? 0,
         messagePreviews: previewMessages(bundle?.messagesByNodeId[node.id] ?? []),
         onBranchCreated: actions.onBranchCreated,
+        onBranchSourceSelected: actions.onBranchSourceSelected,
         onBranchTargetSelected: actions.onBranchTargetSelected,
         onNodeDetailsChanged: actions.onNodeDetailsChanged,
         onNodeDeleteRequested: actions.onNodeDeleteRequested,
@@ -174,6 +180,8 @@ export function toReactFlowNodes(
         summary: node.summary,
         title: node.title,
         type: node.type,
+        revealHighlightId: revealHighlightRequest?.nodeId === node.id ? revealHighlightRequest.highlightId : null,
+        revealHighlightRequestId: revealHighlightRequest?.nodeId === node.id ? revealHighlightRequest.requestId : null,
       },
       id: node.id,
       position: {

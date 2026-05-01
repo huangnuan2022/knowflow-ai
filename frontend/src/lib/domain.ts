@@ -88,6 +88,11 @@ export type RunExecutionResult = {
   run: Run;
 };
 
+export type AiRunDefaults = {
+  provider: string;
+  model: string;
+};
+
 export type ContextSnapshot = {
   id: string;
   runId: string;

@@ -88,6 +88,15 @@ describe('Run execution through provider-neutral adapter', () => {
     await app.close();
   });
 
+  it('exposes only the backend-selected run provider and model defaults', async () => {
+    await expect(
+      requestJson<{ model: string; provider: string }>(baseUrl, '/runs/defaults'),
+    ).resolves.toEqual({
+      model: 'stub-tutor-v0',
+      provider: 'stub',
+    });
+  });
+
   it('executes a pending run with the stub provider and persists an assistant message', async () => {
     const { message, node } = await createNodeWithMessage(baseUrl);
     const selectedTextSnapshot = 'path compression';

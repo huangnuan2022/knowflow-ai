@@ -1,5 +1,6 @@
 import {
   BranchFromSelectionResult,
+  AiRunDefaults,
   DomainEdge,
   DomainNode,
   Graph,
@@ -160,6 +161,10 @@ export async function createRun(input: {
     promptTemplateVersion: input.promptTemplateVersion ?? PROMPT_TEMPLATE_VERSION,
     provider: input.provider,
   });
+}
+
+export async function getAiRunDefaults() {
+  return get<AiRunDefaults>('/runs/defaults');
 }
 
 export async function executeRun(runId: string) {

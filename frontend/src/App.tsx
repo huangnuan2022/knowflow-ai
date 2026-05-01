@@ -8,6 +8,8 @@ import {
   NodeChange,
   NodePositionChange,
   OnNodesChange,
+  OnConnectEnd,
+  OnConnectStart,
   ReactFlow,
   ReactFlowProvider,
   applyNodeChanges,
@@ -16,7 +18,17 @@ import {
   useReactFlow,
 } from '@xyflow/react';
 import { AlertTriangle, Plus, RefreshCw, Trash2 } from 'lucide-react';
-import { ChangeEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  CSSProperties,
+  ChangeEvent,
+  KeyboardEvent,
+  PointerEvent as ReactPointerEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { ConversationNode } from './components/ConversationNode';
 import { ConversationPanel } from './components/ConversationPanel';
 import { EditableEdge } from './components/EditableEdge';
@@ -27,6 +39,7 @@ import {
   createProject,
   deleteEdge,
   deleteNode,
+  getAiRunDefaults,
   loadGraphBundle,
   updateEdgeLabel,
   updateGraph,
@@ -35,7 +48,7 @@ import {
   updateProject,
   WorkspaceSelection,
 } from './lib/api';
-import { DomainEdge, Graph, GraphBundle, NodeLayout, Project } from './lib/domain';
+import { AiRunDefaults, DomainEdge, Graph, GraphBundle, NodeLayout, Project } from './lib/domain';
 import {
   ConversationFlowEdge,
   ConversationFlowNode,
@@ -52,6 +65,9 @@ const edgeTypes = {
   editable: EditableEdge,
 };
 
+const INSPECTOR_WIDTH_STORAGE_KEY = 'knowflow.inspectorWidth';
+const INSPECTOR_MIN_WIDTH = 300;
+const INSPECTOR_DEFAULT_WIDTH = 340;
 const WORKSPACE_SELECTION_STORAGE_KEY = 'knowflow.activeWorkspace';
 const INITIAL_FIT_VIEW_OPTIONS = {
   maxZoom: 0.88,
@@ -77,9 +93,11 @@ function KnowFlowCanvas() {
   const [nodes, setNodes] = useNodesState<ConversationFlowNode>([]);
   const [edges, setEdges] = useEdgesState<ConversationFlowEdge>([]);
   const { fitView, screenToFlowPosition, setCenter } = useReactFlow<ConversationFlowNode, ConversationFlowEdge>();
+  const [aiRunDefaults, setAiRunDefaults] = useState<AiRunDefaults | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [inspectorWidth, setInspectorWidth] = useState(() => readInitialInspectorWidth());
   const [projectTitleDraft, setProjectTitleDraft] = useState('');
   const [projectDescriptionDraft, setProjectDescriptionDraft] = useState('');
   const [graphTitleDraft, setGraphTitleDraft] = useState('');
@@ -93,7 +111,14 @@ function KnowFlowCanvas() {
     childNodeId: string;
     sourceNodeId: string;
   } | null>(null);
+  const [highlightRevealRequest, setHighlightRevealRequest] = useState<{
+    highlightId: string;
+    nodeId: string;
+    requestId: number;
+  } | null>(null);
   const isNodeDraggingRef = useRef(false);
+  const manualConnectionStartedRef = useRef(false);
+  const manualConnectionCompletedRef = useRef(false);
   const lastAutoFitGraphIdRef = useRef<string | null>(null);
   const canvasFrameRef = useRef<HTMLElement>(null);
 
@@ -130,6 +155,26 @@ function KnowFlowCanvas() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    let isActive = true;
+
+    getAiRunDefaults()
+      .then((defaults) => {
+        if (isActive) {
+          setAiRunDefaults(defaults);
+        }
+      })
+      .catch(() => {
+        if (isActive) {
+          setAiRunDefaults(null);
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, []);
 
   const graphTitle = bundle?.activeGraph.title ?? 'KnowFlow';
   const projectTitle = bundle?.activeProject.title ?? 'Workspace';
@@ -327,6 +372,26 @@ function KnowFlowCanvas() {
     }
   }, []);
 
+  const onInspectorResizeStart = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    event.currentTarget.setPointerCapture(event.pointerId);
+
+    const onPointerMove = (moveEvent: PointerEvent) => {
+      const maxWidth = Math.round(window.innerWidth * 0.55);
+      const nextWidth = clampNumber(window.innerWidth - moveEvent.clientX, INSPECTOR_MIN_WIDTH, maxWidth);
+      setInspectorWidth(nextWidth);
+      window.localStorage.setItem(INSPECTOR_WIDTH_STORAGE_KEY, String(nextWidth));
+    };
+
+    const onPointerUp = () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+    };
+
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+  }, []);
+
   const deleteNodesByIds = useCallback(
     async (nodeIds: string[]) => {
       const uniqueNodeIds = [...new Set(nodeIds)];
@@ -475,6 +540,17 @@ function KnowFlowCanvas() {
     setPendingFocusNodeId(targetNodeId);
   }, []);
 
+  const onBranchSourceSelected = useCallback((sourceNodeId: string, highlightId: string) => {
+    setSelectedNodeId(sourceNodeId);
+    setPendingBranchView(null);
+    setPendingFocusNodeId(sourceNodeId);
+    setHighlightRevealRequest((currentRequest) => ({
+      highlightId,
+      nodeId: sourceNodeId,
+      requestId: (currentRequest?.requestId ?? 0) + 1,
+    }));
+  }, []);
+
   const onEdgeLabelChanged = useCallback(async (edgeId: string, label: string) => {
     setIsSaving(true);
     setError(null);
@@ -601,6 +677,7 @@ function KnowFlowCanvas() {
         bundle,
         {
           onBranchCreated,
+          onBranchSourceSelected,
           onBranchTargetSelected,
           onNodeDetailsChanged,
           onNodeDeleteRequested,
@@ -609,17 +686,20 @@ function KnowFlowCanvas() {
           onVisibleBranchHighlightsChanged,
         },
         selectedNodeId,
+        highlightRevealRequest,
       ),
     );
   }, [
     bundle,
     onBranchCreated,
+    onBranchSourceSelected,
     onBranchTargetSelected,
     onNodeDetailsChanged,
     onNodeDeleteRequested,
     onNodeMessagesChanged,
     onNodeResizeEnded,
     onVisibleBranchHighlightsChanged,
+    highlightRevealRequest,
     selectedNodeId,
     setNodes,
   ]);
@@ -706,8 +786,24 @@ function KnowFlowCanvas() {
     return () => window.clearTimeout(timeoutId);
   }, [nodes, pendingFocusNodeId, setCenter]);
 
+  const onConnectStart = useCallback<OnConnectStart>((_, params) => {
+    manualConnectionStartedRef.current = isManualHandleId(params.handleId);
+    manualConnectionCompletedRef.current = false;
+  }, []);
+
+  const onConnectEnd = useCallback<OnConnectEnd>(() => {
+    window.setTimeout(() => {
+      if (manualConnectionStartedRef.current && !manualConnectionCompletedRef.current) {
+        setError('Drop on another collapsed node side handle to create a manual relationship edge.');
+      }
+      manualConnectionStartedRef.current = false;
+      manualConnectionCompletedRef.current = false;
+    }, 0);
+  }, []);
+
   const onConnect = useCallback(
     async (connection: Connection) => {
+      manualConnectionCompletedRef.current = true;
       if (!bundle || !connection.source || !connection.target) {
         return;
       }
@@ -848,6 +944,11 @@ function KnowFlowCanvas() {
           </div>
         </div>
         <div className="topbar__actions">
+          {aiRunDefaults ? (
+            <span className="ai-status-pill" title={`Backend AI defaults: ${aiRunDefaults.provider} / ${aiRunDefaults.model}`}>
+              AI: {aiRunDefaults.provider} / {aiRunDefaults.model}
+            </span>
+          ) : null}
           <span className="status-pill">{statusText}</span>
           <button aria-label="Refresh graph" className="icon-button" onClick={() => void refresh()} type="button">
             <RefreshCw size={18} />
@@ -861,7 +962,10 @@ function KnowFlowCanvas() {
 
       {error ? <div className="error-banner">{error}</div> : null}
 
-      <div className="workspace">
+      <div
+        className="workspace"
+        style={{ '--inspector-width': `${inspectorWidth}px` } as CSSProperties}
+      >
         <section className="canvas-frame" aria-label="KnowFlow graph canvas" ref={canvasFrameRef}>
           <ReactFlow
             edges={edges}
@@ -874,6 +978,8 @@ function KnowFlowCanvas() {
             nodeTypes={nodeTypes}
             nodes={nodes}
             onConnect={onConnect}
+            onConnectEnd={onConnectEnd}
+            onConnectStart={onConnectStart}
             zIndexMode="manual"
             nodeClickDistance={5}
             onNodeClick={(_, node) => {
@@ -898,6 +1004,13 @@ function KnowFlowCanvas() {
             <Controls />
           </ReactFlow>
         </section>
+        <div
+          aria-label="Resize inspector"
+          className="inspector-resize-handle"
+          onPointerDown={onInspectorResizeStart}
+          role="separator"
+          tabIndex={0}
+        />
         <ConversationPanel
           branchContext={selectedNodeBranchContext}
           node={selectedNode}
@@ -1023,6 +1136,23 @@ function newNodePositionFromViewport(
 
 function numberOrDefault(value: unknown, fallback: number) {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+function clampNumber(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), Math.max(min, max));
+}
+
+function readInitialInspectorWidth() {
+  try {
+    const storedWidth = Number(localStorage.getItem(INSPECTOR_WIDTH_STORAGE_KEY));
+    if (Number.isFinite(storedWidth)) {
+      return clampNumber(storedWidth, INSPECTOR_MIN_WIDTH, Math.round(window.innerWidth * 0.55));
+    }
+  } catch {
+    // Local storage can be unavailable in private or restricted browser contexts.
+  }
+
+  return INSPECTOR_DEFAULT_WIDTH;
 }
 
 function mergeNodeLayoutIntoBundle(bundle: GraphBundle, nodeId: string, layout: NodeLayout): GraphBundle {

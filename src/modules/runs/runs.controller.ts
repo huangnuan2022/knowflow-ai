@@ -29,6 +29,11 @@ export class RunsController {
     return this.runsService.findAll(nodeId, status);
   }
 
+  @Get('defaults')
+  defaults() {
+    return this.runsService.getDefaults();
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.runsService.findOne(id);

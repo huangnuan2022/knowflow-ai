@@ -69,6 +69,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
   const [isSavingDetails, setIsSavingDetails] = useState(false);
   const [isContextExpanded, setIsContextExpanded] = useState(false);
   const [highlightAnchorStates, setHighlightAnchorStates] = useState<Record<string, HighlightAnchorState>>({});
+  const [revealedHighlightId, setRevealedHighlightId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const nodeRef = useRef<HTMLElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
@@ -130,6 +131,23 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
   useEffect(() => {
     setSummaryDraft(editableSummary ?? '');
   }, [editableSummary]);
+
+  useEffect(() => {
+    if (!isExpanded || !nodeData.revealHighlightId) {
+      return;
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      const highlightElement = nodeRef.current?.querySelector<HTMLElement>(
+        `[data-highlight-id="${nodeData.revealHighlightId}"]`,
+      );
+      highlightElement?.scrollIntoView({ block: 'center', inline: 'nearest' });
+      setRevealedHighlightId(nodeData.revealHighlightId ?? null);
+      window.setTimeout(() => setRevealedHighlightId(null), 1400);
+    }, 80);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [isExpanded, nodeData.revealHighlightId, nodeData.revealHighlightRequestId]);
 
   const refreshHighlightAnchorStates = useCallback(() => {
     if (!isExpanded || !nodeRef.current || !threadRef.current) {
@@ -589,6 +607,7 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
                   onBranchFromHighlight={onBranchFromHighlight}
                   onBranchTargetSelected={nodeData.onBranchTargetSelected}
                   highlightAnchorStates={highlightAnchorStates}
+                  revealedHighlightId={revealedHighlightId}
                   selectionDraft={selectionDraft?.messageId === message.id ? selectionDraft : null}
                   sourceNodeId={id}
                 />
@@ -779,13 +798,7 @@ function CollapsedNodeBody({
                 className="conversation-node__highlight-button nodrag nopan"
                 onClick={(event) => {
                   event.stopPropagation();
-                  if (highlight.branches.length === 1) {
-                    const firstBranch = highlight.branches[0];
-                    nodeData.onBranchTargetSelected?.(firstBranch.nodeId, sourceNodeId);
-                    return;
-                  }
-
-                  if (highlight.branches.length > 1) {
+                  if (highlight.branches.length > 0) {
                     setOpenBranchPointMenu({
                       highlightId: highlight.id,
                       ...menuPositionForRect(event.currentTarget.getBoundingClientRect()),
@@ -814,6 +827,10 @@ function CollapsedNodeBody({
               branchTargets={openBranchPoint.branches}
               color={openBranchPoint.color}
               onClose={() => setOpenBranchPointMenu(null)}
+              onShowSourceHighlight={() => {
+                setOpenBranchPointMenu(null);
+                nodeData.onBranchSourceSelected?.(sourceNodeId, openBranchPoint.id);
+              }}
               onJumpToBranch={(targetNodeId) => {
                 setOpenBranchPointMenu(null);
                 nodeData.onBranchTargetSelected?.(targetNodeId, sourceNodeId);
@@ -834,12 +851,14 @@ function BranchPointTargetMenu({
   color,
   onClose,
   onJumpToBranch,
+  onShowSourceHighlight,
   position,
 }: {
   branchTargets: BranchTargetPreview[];
   color?: BranchColor;
   onClose: () => void;
   onJumpToBranch: (targetNodeId: string) => void;
+  onShowSourceHighlight: () => void;
   position: BranchPointMenuState;
 }) {
   return createPortal(
@@ -858,10 +877,13 @@ function BranchPointTargetMenu({
       }}
     >
       <span className="highlight-branch-menu__title">Choose branch</span>
+      <button onClick={onShowSourceHighlight} type="button">
+        Show source highlight
+      </button>
       <span className="highlight-branch-menu__targets">
         {branchTargets.map((target, index) => (
           <button key={target.edgeId} onClick={() => onJumpToBranch(target.nodeId)} type="button">
-            {index + 1}. {truncateText(target.title, 42)}
+            {branchTargets.length === 1 ? 'Jump to branch node' : `${index + 1}. ${truncateText(target.title, 42)}`}
           </button>
         ))}
       </span>
@@ -883,6 +905,7 @@ function CanvasMessage({
   onBranch,
   onBranchFromHighlight,
   onBranchTargetSelected,
+  revealedHighlightId,
   selectionDraft,
   sourceNodeId,
 }: {
@@ -895,6 +918,7 @@ function CanvasMessage({
   onBranch: () => void;
   onBranchFromHighlight: (highlight: Highlight) => void;
   onBranchTargetSelected?: (targetNodeId: string, sourceNodeId: string) => void;
+  revealedHighlightId?: string | null;
   selectionDraft: InlineSelectionDraft | null;
   sourceNodeId: string;
 }) {
@@ -937,6 +961,7 @@ function CanvasMessage({
             isBranching={isBranching}
             onBranchFromHighlight={onBranchFromHighlight}
             onBranchTargetSelected={onBranchTargetSelected}
+            revealedHighlightId={revealedHighlightId}
             sourceNodeId={sourceNodeId}
             withHandles={isAssistant}
           />
@@ -976,6 +1001,7 @@ function HighlightedContent({
   isBranching,
   onBranchFromHighlight,
   onBranchTargetSelected,
+  revealedHighlightId,
   sourceNodeId,
   withHandles,
 }: {
@@ -987,6 +1013,7 @@ function HighlightedContent({
   isBranching: boolean;
   onBranchFromHighlight: (highlight: Highlight) => void;
   onBranchTargetSelected?: (targetNodeId: string, sourceNodeId: string) => void;
+  revealedHighlightId?: string | null;
   sourceNodeId: string;
   withHandles: boolean;
 }) {
@@ -1022,6 +1049,7 @@ function HighlightedContent({
             'canvas-message-highlight',
             range.isDraft ? 'canvas-message-highlight--draft' : '',
             canOpenBranchMenu ? 'canvas-message-highlight--menu-trigger' : '',
+            range.id === revealedHighlightId ? 'canvas-message-highlight--revealed' : '',
           ]
             .filter(Boolean)
             .join(' ')}

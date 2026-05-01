@@ -160,6 +160,19 @@ button {
   white-space: nowrap;
 }
 
+.ai-status-pill {
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 999px;
+  color: #1e40af;
+  font-size: 12px;
+  max-width: 260px;
+  overflow: hidden;
+  padding: 6px 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .icon-button,
 .primary-button,
 .secondary-button {
@@ -321,12 +334,40 @@ button {
 
 .workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 320px;
+  grid-template-columns: minmax(0, 1fr) 8px var(--inspector-width, 340px);
   min-height: 0;
 }
 
 .canvas-frame {
   min-height: 0;
+}
+
+.inspector-resize-handle {
+  background: #f8fafc;
+  border-left: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+  cursor: col-resize;
+  min-height: 0;
+  position: relative;
+}
+
+.inspector-resize-handle::before {
+  background: #94a3b8;
+  border-radius: 999px;
+  content: "";
+  height: 44px;
+  left: 50%;
+  opacity: 0;
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  transition: opacity 120ms ease;
+  width: 3px;
+}
+
+.inspector-resize-handle:hover::before,
+.inspector-resize-handle:focus::before {
+  opacity: 0.7;
 }
 
 .react-flow {
@@ -812,6 +853,12 @@ button {
   outline: none;
 }
 
+.canvas-message-highlight--revealed {
+  box-shadow:
+    0 0 0 1px var(--highlight-border, #eab308) inset,
+    0 0 0 4px color-mix(in srgb, var(--highlight-border, #eab308) 24%, transparent);
+}
+
 .highlight-branch-menu {
   background: #ffffff;
   border: 1px solid var(--highlight-border, #eab308);
@@ -978,7 +1025,20 @@ button {
 
 .conversation-node__highlight {
   position: relative;
-  width: calc(100% - 28px);
+  padding-right: 26px;
+  width: 100%;
+}
+
+.conversation-node__highlight::after {
+  border-top: 2px solid var(--highlight-edge, #eab308);
+  content: "";
+  opacity: 0.72;
+  position: absolute;
+  right: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 22px;
+  z-index: 1;
 }
 
 .conversation-node__highlight-button {
@@ -998,6 +1058,8 @@ button {
   padding: 7px 24px 7px 9px;
   text-align: left;
   width: 100%;
+  position: relative;
+  z-index: 2;
 }
 
 .conversation-node__highlight-button:hover,
@@ -1040,53 +1102,59 @@ button {
 .node-handle--manual {
   background: #64748b;
   border: 2px solid #ffffff;
-  height: 12px;
-  opacity: 0.28;
-  width: 12px;
+  height: 16px;
+  opacity: 0.42;
+  width: 16px;
+  z-index: 18;
 }
 
 .node-handle--manual-target {
-  background: #94a3b8;
+  background: transparent;
+  border-color: transparent;
+  height: 30px;
+  opacity: 0;
+  width: 30px;
+  z-index: 17;
 }
 
 .node-handle--manual-source.node-handle--manual-top {
-  left: calc(50% + 8px);
-  top: -8px;
+  left: 50%;
+  top: -10px;
 }
 
 .node-handle--manual-target.node-handle--manual-top {
-  left: calc(50% - 8px);
-  top: -8px;
+  left: 50%;
+  top: -15px;
 }
 
 .node-handle--manual-source.node-handle--manual-right {
-  right: -8px;
-  top: calc(50% - 8px);
+  right: -10px;
+  top: 50%;
 }
 
 .node-handle--manual-target.node-handle--manual-right {
-  right: -8px;
-  top: calc(50% + 8px);
+  right: -15px;
+  top: 50%;
 }
 
 .node-handle--manual-source.node-handle--manual-bottom {
-  bottom: -8px;
-  left: calc(50% + 8px);
+  bottom: -10px;
+  left: 50%;
 }
 
 .node-handle--manual-target.node-handle--manual-bottom {
-  bottom: -8px;
-  left: calc(50% - 8px);
+  bottom: -15px;
+  left: 50%;
 }
 
 .node-handle--manual-source.node-handle--manual-left {
-  left: -8px;
-  top: calc(50% - 8px);
+  left: -10px;
+  top: 50%;
 }
 
 .node-handle--manual-target.node-handle--manual-left {
-  left: -8px;
-  top: calc(50% + 8px);
+  left: -15px;
+  top: 50%;
 }
 
 .conversation-node:hover .node-handle--manual,
@@ -1110,6 +1178,10 @@ button {
   top: 50%;
   transform: translate(50%, -50%);
   width: 1px !important;
+}
+
+.conversation-node__highlight .node-handle--highlight {
+  right: 26px;
 }
 
 .node-handle--inline-highlight {

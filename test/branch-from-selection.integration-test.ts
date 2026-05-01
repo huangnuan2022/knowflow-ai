@@ -10,6 +10,9 @@ const testDatabaseUrl =
   'postgresql://knowflow:knowflow@localhost:15432/knowflow_test?schema=public';
 
 process.env.DATABASE_URL = process.env.DATABASE_URL ?? testDatabaseUrl;
+process.env.AI_MODEL = 'stub-tutor-v0';
+process.env.AI_PROVIDER = 'stub';
+process.env.OPENAI_API_KEY = '';
 
 type RecordWithId = {
   id: string;

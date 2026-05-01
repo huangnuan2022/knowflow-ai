@@ -29,6 +29,10 @@ export class RunsService {
     });
   }
 
+  getDefaults() {
+    return this.aiRunConfig.resolveRunConfig();
+  }
+
   findAll(nodeId?: string, status?: RunStatus) {
     return this.prisma.run.findMany({
       orderBy: { createdAt: 'desc' },
