@@ -25,6 +25,7 @@ import {
   manualNodeHandleId,
   ManualHandleSide,
 } from '../lib/reactFlowAdapter';
+import { findReaderSyncAnchor, scrollReaderToAnchor } from '../lib/readerSync';
 import { readTextSelectionWithin, TextSelectionRange } from '../lib/textSelection';
 
 type InlineSelectionDraft = TextSelectionRange & {
@@ -73,7 +74,10 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
   const [error, setError] = useState<string | null>(null);
   const nodeRef = useRef<HTMLElement>(null);
   const threadRef = useRef<HTMLDivElement>(null);
+  const isApplyingReaderSyncRef = useRef(false);
+  const lastReaderSyncKeyRef = useRef('');
   const scrollFrameRef = useRef<number | null>(null);
+  const readerSyncFrameRef = useRef<number | null>(null);
   const updateNodeInternals = useUpdateNodeInternals();
   const nodeAccentStyle = useMemo(
     () => (nodeData.accentColor ? branchColorStyle(nodeData.accentColor, 'node') : undefined),
@@ -119,6 +123,9 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
     () => () => {
       if (scrollFrameRef.current !== null) {
         window.cancelAnimationFrame(scrollFrameRef.current);
+      }
+      if (readerSyncFrameRef.current !== null) {
+        window.cancelAnimationFrame(readerSyncFrameRef.current);
       }
     },
     [],
@@ -205,6 +212,21 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
   useEffect(() => {
     refreshHighlightAnchorStates();
   }, [highlightHandleKey, isContextExpanded, refreshHighlightAnchorStates, sortedMessages]);
+
+  useEffect(() => {
+    const anchor = nodeData.readerSyncAnchor;
+    if (!isExpanded || !anchor || anchor.nodeId !== id || anchor.source === 'canvas' || !threadRef.current) {
+      return;
+    }
+
+    isApplyingReaderSyncRef.current = true;
+    scrollReaderToAnchor(threadRef.current, '[data-reader-message-id]', anchor);
+    const timeoutId = window.setTimeout(() => {
+      isApplyingReaderSyncRef.current = false;
+    }, 160);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [id, isExpanded, nodeData.readerSyncAnchor]);
 
   const saveTitle = useCallback(async () => {
     const nextTitle = titleDraft.trim();
@@ -468,8 +490,25 @@ export function ConversationNode({ data, id, selected }: NodeProps) {
       scrollFrameRef.current = null;
       refreshHighlightAnchorStates();
       updateNodeInternals(id);
+
+      if (isExpanded && threadRef.current && !isApplyingReaderSyncRef.current) {
+        const anchor = findReaderSyncAnchor(
+          threadRef.current,
+          '[data-reader-message-id]',
+          id,
+          'canvas',
+          Date.now(),
+        );
+        if (anchor) {
+          const syncKey = `${anchor.messageId}:${Math.round(anchor.ratio * 20)}`;
+          if (syncKey !== lastReaderSyncKeyRef.current) {
+            lastReaderSyncKeyRef.current = syncKey;
+            nodeData.onReaderSyncAnchorChanged?.(anchor);
+          }
+        }
+      }
     });
-  }, [id, refreshHighlightAnchorStates, updateNodeInternals]);
+  }, [id, isExpanded, nodeData, refreshHighlightAnchorStates, updateNodeInternals]);
 
   return (
     <article
@@ -933,7 +972,10 @@ function CanvasMessage({
   }, [isAssistant, message, onAssistantSelection]);
 
   return (
-    <article className={`canvas-message ${isAssistant ? 'canvas-message--assistant' : 'canvas-message--user'}`}>
+    <article
+      className={`canvas-message ${isAssistant ? 'canvas-message--assistant' : 'canvas-message--user'}`}
+      data-reader-message-id={message.id}
+    >
       {isAssistant ? (
         <span className="canvas-message__avatar" aria-hidden="true">
           <Icon size={14} />

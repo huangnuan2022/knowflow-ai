@@ -98,6 +98,7 @@ Started in Phase 3:
 - Branch edge labels inherit the source highlight color, matching the highlight and child branch node. Branch edges should target the nearest side of the child node. Edge visibility should follow a focus-plus-context rule: edges related to the currently focused node are emphasized; unrelated edges are dimmed and their labels are hidden so dense graphs remain readable. Focused branch edges may use lightweight obstacle-aware routing around other node cards when a direct curve would be hidden by overlapping nodes. Manual edges and non-focused branch edges can keep simple bezier routing in v0.
 - Temporary text selections that have not been branched yet should clear when the user clicks outside the selected assistant message or inline Branch action.
 - The right sidebar acts as a secondary read-only inspector instead of the primary ask/branch surface, and its width can be adjusted for reading longer AI responses.
+- The expanded canvas node and read-only inspector keep a lightweight synchronized reading position by message anchor, and inspector highlights use the same deterministic colors as canvas highlights.
 - The UI can show the current backend-selected AI provider/model as read-only status. It must not expose a user-controlled model picker in v0.
 - Node deletion uses an in-app confirmation dialog instead of the browser's native confirm prompt.
 - Expanded nodes should use readable conversation-scale typography; collapsed nodes remain compact scan cards.

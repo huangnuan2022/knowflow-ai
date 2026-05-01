@@ -1,5 +1,5 @@
 import { Bot, GitBranch, Loader2, Send } from 'lucide-react';
-import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { CSSProperties, FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   createBranchFromSelection,
   createRun,
@@ -9,6 +9,8 @@ import {
   getMessages,
 } from '../lib/api';
 import { DomainNode, Highlight, Message, NodeLayout } from '../lib/domain';
+import { BranchColor, colorForHighlightId } from '../lib/reactFlowAdapter';
+import { findReaderSyncAnchor, ReaderSyncAnchor, scrollReaderToAnchor } from '../lib/readerSync';
 import { readTextSelectionWithin, TextSelectionRange } from '../lib/textSelection';
 
 type ConversationPanelProps = {
@@ -16,7 +18,9 @@ type ConversationPanelProps = {
   node?: DomainNode;
   onBranchCreated?: (childNodeId: string, sourceNodeId: string) => Promise<void> | void;
   onNodeMessagesChanged?: () => Promise<void> | void;
+  onReaderSyncAnchorChanged?: (anchor: ReaderSyncAnchor) => void;
   readOnly?: boolean;
+  readerSyncAnchor?: ReaderSyncAnchor | null;
 };
 
 type BranchContext = {
@@ -35,7 +39,9 @@ export function ConversationPanel({
   node,
   onBranchCreated,
   onNodeMessagesChanged,
+  onReaderSyncAnchorChanged,
   readOnly = false,
+  readerSyncAnchor,
 }: ConversationPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [highlightsByMessageId, setHighlightsByMessageId] = useState<HighlightsByMessageId>({});
@@ -45,6 +51,9 @@ export function ConversationPanel({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isBranching, setIsBranching] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const isApplyingReaderSyncRef = useRef(false);
+  const lastReaderSyncKeyRef = useRef('');
+  const messageListRef = useRef<HTMLDivElement>(null);
 
   const sortedMessages = useMemo(
     () => [...messages].sort((left, right) => left.sequence - right.sequence),
@@ -78,6 +87,52 @@ export function ConversationPanel({
   useEffect(() => {
     setSelectionDraft(null);
   }, [node?.id]);
+
+  useEffect(() => {
+    if (
+      !readOnly ||
+      !node ||
+      !readerSyncAnchor ||
+      readerSyncAnchor.nodeId !== node.id ||
+      readerSyncAnchor.source === 'inspector' ||
+      !messageListRef.current
+    ) {
+      return;
+    }
+
+    isApplyingReaderSyncRef.current = true;
+    scrollReaderToAnchor(messageListRef.current, '[data-reader-message-id]', readerSyncAnchor);
+    const timeoutId = window.setTimeout(() => {
+      isApplyingReaderSyncRef.current = false;
+    }, 160);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [node, readOnly, readerSyncAnchor]);
+
+  const onMessageListScroll = useCallback(() => {
+    if (!readOnly || !node || !messageListRef.current || isApplyingReaderSyncRef.current) {
+      return;
+    }
+
+    const anchor = findReaderSyncAnchor(
+      messageListRef.current,
+      '[data-reader-message-id]',
+      node.id,
+      'inspector',
+      Date.now(),
+    );
+    if (!anchor) {
+      return;
+    }
+
+    const syncKey = `${anchor.messageId}:${Math.round(anchor.ratio * 20)}`;
+    if (syncKey === lastReaderSyncKeyRef.current) {
+      return;
+    }
+
+    lastReaderSyncKeyRef.current = syncKey;
+    onReaderSyncAnchorChanged?.(anchor);
+  }, [node, onReaderSyncAnchorChanged, readOnly]);
 
   const onAssistantSelection = useCallback(
     (message: Message, element: HTMLElement) => {
@@ -205,7 +260,7 @@ export function ConversationPanel({
         </div>
       ) : null}
 
-      <div className="message-list" aria-busy={isLoading || isSubmitting}>
+      <div className="message-list" aria-busy={isLoading || isSubmitting} onScroll={onMessageListScroll} ref={messageListRef}>
         {isLoading ? <div className="message-list__state">Loading</div> : null}
         {!isLoading && sortedMessages.length === 0 ? (
           <div className="message-list__state">No messages</div>
@@ -284,7 +339,7 @@ function MessageBubble({
   }, [enableBranching, isAssistant, message, onAssistantSelection]);
 
   return (
-    <article className={bubbleClassName}>
+    <article className={bubbleClassName} data-reader-message-id={message.id}>
       {isAssistant ? (
         <span className="message-bubble__icon" aria-hidden="true">
           <Bot size={16} />
@@ -320,7 +375,7 @@ function HighlightedContent({ content, highlights }: { content: string; highligh
     }
 
     parts.push(
-      <mark className="message-highlight" key={range.id}>
+      <mark className="message-highlight" key={range.id} style={highlightColorStyle(colorForHighlightId(range.id))}>
         {content.slice(range.startOffset, range.endOffset)}
       </mark>,
     );
@@ -332,6 +387,14 @@ function HighlightedContent({ content, highlights }: { content: string; highligh
   }
 
   return <>{parts}</>;
+}
+
+function highlightColorStyle(color: BranchColor): CSSProperties {
+  return {
+    '--highlight-bg': color.background,
+    '--highlight-border': color.border,
+    '--highlight-text': color.text,
+  } as CSSProperties;
 }
 
 async function loadHighlightsByMessageId(messages: Message[]): Promise<HighlightsByMessageId> {

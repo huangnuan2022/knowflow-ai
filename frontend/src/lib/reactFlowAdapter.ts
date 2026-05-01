@@ -1,5 +1,6 @@
 import { Edge, MarkerType, Node } from '@xyflow/react';
 import { DomainEdge, DomainNode, EdgeType, GraphBundle, Highlight, Message, MessageRole, NodeLayout } from './domain';
+import { ReaderSyncAnchor } from './readerSync';
 
 export type NodeMessagePreview = {
   id: string;
@@ -51,7 +52,9 @@ export type ConversationNodeActions = {
   onNodeDeleteRequested?: (nodeId: string) => Promise<void> | void;
   onNodeMessagesChanged?: () => Promise<void> | void;
   onNodeResizeEnded?: (nodeId: string, layout: Required<NodeLayout>) => Promise<void> | void;
+  onReaderSyncAnchorChanged?: (anchor: ReaderSyncAnchor) => void;
   onVisibleBranchHighlightsChanged?: (nodeId: string, visibleHighlightIds: string[]) => void;
+  readerSyncAnchor?: ReaderSyncAnchor | null;
 };
 
 export type ConversationNodeData = Record<string, unknown> & {
@@ -72,7 +75,9 @@ export type ConversationNodeData = Record<string, unknown> & {
   onNodeDeleteRequested?: (nodeId: string) => Promise<void> | void;
   onNodeMessagesChanged?: () => Promise<void> | void;
   onNodeResizeEnded?: (nodeId: string, layout: Required<NodeLayout>) => Promise<void> | void;
+  onReaderSyncAnchorChanged?: (anchor: ReaderSyncAnchor) => void;
   onVisibleBranchHighlightsChanged?: (nodeId: string, visibleHighlightIds: string[]) => void;
+  readerSyncAnchor?: ReaderSyncAnchor | null;
   summary?: string | null;
   title: string;
   type: string;
@@ -175,7 +180,9 @@ export function toReactFlowNodes(
         onNodeDeleteRequested: actions.onNodeDeleteRequested,
         onNodeMessagesChanged: actions.onNodeMessagesChanged,
         onNodeResizeEnded: actions.onNodeResizeEnded,
+        onReaderSyncAnchorChanged: actions.onReaderSyncAnchorChanged,
         onVisibleBranchHighlightsChanged: actions.onVisibleBranchHighlightsChanged,
+        readerSyncAnchor: actions.readerSyncAnchor,
         accentColor: findInboundBranchColor(bundle?.edges, node.id),
         summary: node.summary,
         title: node.title,

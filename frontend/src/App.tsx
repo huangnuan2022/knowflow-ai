@@ -56,6 +56,7 @@ import {
   toReactFlowEdges,
   toReactFlowNodes,
 } from './lib/reactFlowAdapter';
+import { ReaderSyncAnchor } from './lib/readerSync';
 
 const nodeTypes = {
   conversation: ConversationNode,
@@ -116,6 +117,7 @@ function KnowFlowCanvas() {
     nodeId: string;
     requestId: number;
   } | null>(null);
+  const [readerSyncAnchor, setReaderSyncAnchor] = useState<ReaderSyncAnchor | null>(null);
   const isNodeDraggingRef = useRef(false);
   const manualConnectionStartedRef = useRef(false);
   const manualConnectionCompletedRef = useRef(false);
@@ -665,6 +667,21 @@ function KnowFlowCanvas() {
     });
   }, []);
 
+  const onReaderSyncAnchorChanged = useCallback((anchor: ReaderSyncAnchor) => {
+    setReaderSyncAnchor((currentAnchor) => {
+      if (
+        currentAnchor?.nodeId === anchor.nodeId &&
+        currentAnchor.messageId === anchor.messageId &&
+        currentAnchor.source === anchor.source &&
+        Math.abs(currentAnchor.ratio - anchor.ratio) < 0.04
+      ) {
+        return currentAnchor;
+      }
+
+      return anchor;
+    });
+  }, []);
+
   useEffect(() => {
     if (!bundle) {
       setNodes([]);
@@ -683,7 +700,9 @@ function KnowFlowCanvas() {
           onNodeDeleteRequested,
           onNodeMessagesChanged,
           onNodeResizeEnded,
+          onReaderSyncAnchorChanged,
           onVisibleBranchHighlightsChanged,
+          readerSyncAnchor,
         },
         selectedNodeId,
         highlightRevealRequest,
@@ -698,8 +717,10 @@ function KnowFlowCanvas() {
     onNodeDeleteRequested,
     onNodeMessagesChanged,
     onNodeResizeEnded,
+    onReaderSyncAnchorChanged,
     onVisibleBranchHighlightsChanged,
     highlightRevealRequest,
+    readerSyncAnchor,
     selectedNodeId,
     setNodes,
   ]);
@@ -1019,6 +1040,8 @@ function KnowFlowCanvas() {
           node={selectedNode}
           onBranchCreated={onBranchCreated}
           onNodeMessagesChanged={onNodeMessagesChanged}
+          onReaderSyncAnchorChanged={onReaderSyncAnchorChanged}
+          readerSyncAnchor={readerSyncAnchor}
           readOnly
         />
       </div>

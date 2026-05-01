@@ -1055,6 +1055,7 @@ button {
 }
 
 .conversation-node__highlight {
+  --branch-port-overhang: 46px;
   position: relative;
   padding-right: 34px;
   width: 100%;
@@ -1065,11 +1066,11 @@ button {
   content: "";
   opacity: 0.72;
   position: absolute;
-  right: -4px;
+  right: calc(-1 * var(--branch-port-overhang));
   top: 50%;
   transform: translateY(-50%);
-  width: 34px;
-  z-index: 1;
+  width: calc(34px + var(--branch-port-overhang));
+  z-index: 45;
 }
 
 .conversation-node__highlight-button {
@@ -1207,7 +1208,7 @@ button {
 }
 
 .conversation-node__highlight .node-handle--highlight {
-  right: -4px;
+  right: calc(-1 * var(--branch-port-overhang, 46px));
 }
 
 .node-handle--inline-highlight {
@@ -1478,9 +1479,10 @@ button {
 }
 
 .message-highlight {
-  background: #fef08a;
+  background: var(--highlight-bg, #fef08a);
   border-radius: 4px;
-  color: inherit;
+  box-shadow: 0 0 0 1px var(--highlight-border, transparent) inset;
+  color: var(--highlight-text, inherit);
   padding: 0 2px;
 }
 
