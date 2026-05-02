@@ -427,7 +427,7 @@ button {
 .landing-workflow-overview {
   display: grid;
   gap: 18px;
-  margin-top: 58px;
+  margin-top: 88px;
 }
 
 .landing-workflow-overview__header {
@@ -452,15 +452,15 @@ button {
 .landing-feature-walkthrough {
   align-items: stretch;
   display: grid;
-  gap: 26px;
-  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  gap: 24px;
+  grid-template-columns: minmax(180px, 210px) minmax(0, 1fr);
   margin-top: 28px;
 }
 
 .landing-feature-tabs {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
+  display: grid;
+  gap: 11px;
+  grid-template-rows: repeat(5, minmax(70px, 1fr));
 }
 
 .landing-feature-tab,
@@ -506,9 +506,9 @@ button {
   color: #334155;
   cursor: pointer;
   display: flex;
-  gap: 10px;
-  min-height: 58px;
-  padding: 11px 12px;
+  gap: 9px;
+  min-height: 0;
+  padding: 12px;
   text-align: left;
   transition:
     background 160ms ease,
@@ -540,11 +540,11 @@ button {
   color: var(--feature-ink);
   display: inline-flex;
   flex: 0 0 auto;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 850;
-  height: 32px;
+  height: 28px;
   justify-content: center;
-  width: 32px;
+  width: 28px;
 }
 
 .landing-feature-tab.is-active .landing-feature-tab__index {
@@ -560,8 +560,8 @@ button {
 
 .landing-feature-tab__text strong {
   color: #0f172a;
-  font-size: 14px;
-  line-height: 1.24;
+  font-size: 13px;
+  line-height: 1.26;
 }
 
 .landing-feature-video-panel {
@@ -731,7 +731,10 @@ button {
   }
 
   .landing-feature-tabs {
+    display: flex;
     flex-direction: row;
+    gap: 10px;
+    grid-template-rows: none;
     overflow-x: auto;
     padding-bottom: 6px;
     scroll-snap-type: x proximity;
@@ -739,7 +742,12 @@ button {
 
   .landing-feature-tab {
     flex: 0 0 min(250px, 76vw);
+    min-height: 62px;
     scroll-snap-align: start;
+  }
+
+  .landing-workflow-overview {
+    margin-top: 64px;
   }
 }
 
