@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "description": "KnowFlow NestJS backend foundation.",
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "scripts": {
     "build": "nest build",
     "db:down": "docker compose down",
