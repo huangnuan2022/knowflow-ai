@@ -26,6 +26,11 @@ export function EditableEdge({
   const isBranchEdge = edgeData.edgeType === 'BRANCH';
   const label = edgeData.label?.trim() ?? '';
   const canEdit = edgeData.edgeType === 'MANUAL';
+  const labelTitle = canEdit
+    ? label
+      ? `Edit relationship label: ${label}`
+      : 'Add relationship label'
+    : label || 'Branch source text';
   const shouldShowLabel = edgeData.isDimmed
     ? false
     : isBranchEdge
@@ -175,7 +180,7 @@ export function EditableEdge({
                       setIsEditing(true);
                     }
                   }}
-                  title={canEdit ? 'Edit relationship label' : 'Branch source text'}
+                  title={labelTitle}
                   type="button"
                 >
                   {label || 'Add label'}

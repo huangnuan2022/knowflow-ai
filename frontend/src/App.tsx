@@ -20,8 +20,6 @@ import {
 import {
   AlertTriangle,
   ArrowRight,
-  GitBranch,
-  MessageSquare,
   Network,
   Plus,
   RefreshCw,
@@ -46,6 +44,7 @@ import {
   createNode,
   createProject,
   deleteEdge,
+  deleteGraph,
   deleteNode,
   getAiRunDefaults,
   loadGraphBundle,
@@ -100,6 +99,56 @@ export function App() {
 }
 
 function LandingPage() {
+  const workflowSteps = [
+    {
+      title: 'Ask inside a visual workspace',
+      copy: 'Start or continue a conversation inside any node.',
+      tone: 'blue',
+      videoSrc: '/media/workflow-ask-node.mp4',
+    },
+    {
+      title: 'Branch from what you want to explore',
+      copy: 'Select text from an AI answer and create a focused child conversation with the source context preserved.',
+      tone: 'pink',
+      videoSrc: '/media/workflow-branch-highlight.mp4',
+    },
+    {
+      title: 'Navigate sources and branches',
+      copy: 'Open a branch point to jump to its child branches, return to the original source highlight, or follow the learning path across ancestors.',
+      tone: 'violet',
+      videoSrc: '/media/workflow-navigate-sources.mp4',
+    },
+    {
+      title: 'Map relationships between existing nodes',
+      copy: 'Connect existing conversation nodes and label the relationship when two ideas belong together.',
+      tone: 'green',
+      videoSrc: '/media/workflow-map-relationships.mp4',
+    },
+    {
+      title: 'Review how concepts relate across the graph',
+      copy: 'See how understanding expands from the original question into connected subtopics, branches, and relationships.',
+      tone: 'amber',
+      videoSrc: '/media/workflow-review-graph.mp4',
+    },
+  ];
+  const [activeWorkflowStepIndex, setActiveWorkflowStepIndex] = useState(0);
+  const activeWorkflowStep = workflowSteps[activeWorkflowStepIndex];
+
+  const differentiators = [
+    [
+      'Conversation nodes, not sticky notes',
+      'Each node can hold questions, answers, summaries, highlights, and follow-up prompts in one place.',
+    ],
+    [
+      'Branches keep provenance',
+      'A child node remembers the exact source text that created it, so context stays understandable later.',
+    ],
+    [
+      'The graph becomes learning memory',
+      'You can navigate back to source highlights, child branches, and ancestor paths instead of searching a long chat log.',
+    ],
+  ];
+
   return (
     <main className="landing-page">
       <section className="landing-hero">
@@ -114,15 +163,15 @@ function LandingPage() {
         </nav>
 
         <div className="landing-hero__scene" aria-hidden="true">
-          <div className="landing-hero-node landing-hero-node--one">AI response</div>
-          <div className="landing-hero-node landing-hero-node--two">database schema</div>
-          <div className="landing-hero-node landing-hero-node--three">cache-aside strategy</div>
+          <div className="landing-hero-node landing-hero-node--one">Branch from any AI answer</div>
+          <div className="landing-hero-node landing-hero-node--two">Visual learning memory</div>
+          <div className="landing-hero-node landing-hero-node--three">Real AI workspace</div>
           <div className="landing-hero-line landing-hero-line--one" />
           <div className="landing-hero-line landing-hero-line--two" />
         </div>
 
         <div className="landing-hero__copy">
-          <p className="landing-eyebrow">Built with Codex for technical learners</p>
+          <p className="landing-eyebrow">Built for visual AI learning</p>
           <h1>KnowFlow — Turn AI chats into branching learning graphs</h1>
           <p className="landing-hero__subtitle">
             Ask AI inside a visual node, click or highlight a confusing concept in the answer, and branch into a focused child conversation that stays connected on the canvas.
@@ -132,64 +181,10 @@ function LandingPage() {
               Open Workspace
               <ArrowRight size={18} />
             </a>
-            <a className="landing-button landing-button--secondary" href="#workflow-preview">
-              View Demo
+            <a className="landing-button landing-button--secondary" href="#learning-map">
+              Watch the Workflow
             </a>
           </div>
-        </div>
-      </section>
-
-      <section className="landing-section landing-section--preview" id="workflow-preview" aria-labelledby="workflow-preview-title">
-        <div className="landing-section__header">
-          <p className="landing-eyebrow">Workflow preview</p>
-          <h2 id="workflow-preview-title">Branch from the exact concept that needs explanation</h2>
-        </div>
-        <div className="landing-preview" aria-label="KnowFlow workflow preview">
-          <div className="landing-preview__node landing-preview__node--parent">
-            <div className="landing-preview__node-header">
-              <MessageSquare size={18} />
-              <span>AI answer node</span>
-            </div>
-            <p>
-              A URL shortener needs API design, <mark>short-code generation</mark>, database schema,
-              caching, rate limiting, and analytics.
-            </p>
-            <button className="landing-preview__branch" type="button">
-              <GitBranch size={15} />
-              Branch
-            </button>
-          </div>
-          <div className="landing-preview__edge" aria-hidden="true">
-            <span>short-code generation</span>
-          </div>
-          <div className="landing-preview__node landing-preview__node--child">
-            <div className="landing-preview__node-header">
-              <MessageSquare size={18} />
-              <span>Focused child node</span>
-            </div>
-            <p>Explore Base62 IDs, random tokens, collision checks, and which option is best for interviews.</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="landing-section" aria-labelledby="how-it-works">
-        <div className="landing-section__header">
-          <p className="landing-eyebrow">How it works</p>
-          <h2 id="how-it-works">A learning path you can see</h2>
-        </div>
-        <div className="landing-steps">
-          {[
-            ['Ask AI inside a node', 'Start a local conversation directly on the canvas.'],
-            ['Click or highlight a concept', 'Turn confusing terms into explicit learning anchors.'],
-            ['Branch into a focused child conversation', 'Keep the exact selected text as context.'],
-            ['Build a visual learning graph', 'Review how your understanding expanded over time.'],
-          ].map(([title, copy], index) => (
-            <article className="landing-step" key={title}>
-              <span>{index + 1}</span>
-              <h3>{title}</h3>
-              <p>{copy}</p>
-            </article>
-          ))}
         </div>
       </section>
 
@@ -200,7 +195,7 @@ function LandingPage() {
         </div>
         <div className="landing-copy-stack">
           <p>
-            Long chat histories bury the path a learner took. Complex technical topics naturally branch into APIs, data models, caching, reliability, cost, and tradeoffs.
+            Long chat histories bury the path a learner took. Real understanding often branches into related concepts, examples, tradeoffs, and follow-up questions.
           </p>
           <p>
             KnowFlow keeps those branches visible, so the graph becomes part of the learning memory instead of a decorative whiteboard.
@@ -208,20 +203,113 @@ function LandingPage() {
         </div>
       </section>
 
-      <section className="landing-section landing-section--stack" aria-labelledby="stack">
+      <section className="landing-section landing-section--learning-map" id="learning-map" aria-labelledby="learning-map-title">
         <div className="landing-section__header">
-          <p className="landing-eyebrow">Built with Codex</p>
-          <h2 id="stack">Product idea, architecture, and implementation shaped through Codex</h2>
+          <p className="landing-eyebrow">Workflow</p>
+          <h2 id="learning-map-title">From AI answer to learning map</h2>
+          <p>
+            Watch the core loop: ask a question, branch from the answer, keep the source context, and turn the conversation into a navigable graph.
+          </p>
         </div>
-        <div className="landing-stack">
-          <span>React</span>
-          <span>TypeScript</span>
-          <span>React Flow / xyflow</span>
-          <span>NestJS</span>
-          <span>Prisma</span>
-          <span>PostgreSQL</span>
-          <span>OpenAI Responses API</span>
-          <span>Playwright</span>
+
+        <div className="landing-feature-walkthrough" aria-label="KnowFlow feature walkthrough">
+          <div className="landing-feature-tabs" role="tablist" aria-label="Feature walkthrough steps">
+            {workflowSteps.map((step, index) => {
+              const isActive = index === activeWorkflowStepIndex;
+
+              return (
+                <button
+                  aria-controls="landing-feature-video-panel"
+                  aria-selected={isActive}
+                  className={`landing-feature-tab landing-feature-tab--${step.tone}${isActive ? ' is-active' : ''}`}
+                  id={`landing-feature-tab-${index}`}
+                  key={step.title}
+                  onClick={() => setActiveWorkflowStepIndex(index)}
+                  role="tab"
+                  type="button"
+                >
+                  <span className="landing-feature-tab__index">{index + 1}</span>
+                  <span className="landing-feature-tab__text">
+                    <strong>{step.title}</strong>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div
+            aria-labelledby={`landing-feature-tab-${activeWorkflowStepIndex}`}
+            className={`landing-feature-video-panel landing-feature-video-panel--${activeWorkflowStep.tone}`}
+            id="landing-feature-video-panel"
+            role="tabpanel"
+          >
+            <div className="landing-feature-video-panel__header">
+              <span>{String(activeWorkflowStepIndex + 1).padStart(2, '0')}</span>
+              <div>
+                <h3>{activeWorkflowStep.title}</h3>
+                <p>{activeWorkflowStep.copy}</p>
+              </div>
+            </div>
+            <video
+              aria-label={`${activeWorkflowStep.title} feature demo video`}
+              autoPlay
+              className="landing-feature-video"
+              controls
+              key={activeWorkflowStep.videoSrc}
+              loop
+              muted
+              playsInline
+              preload="metadata"
+            >
+              <source src={activeWorkflowStep.videoSrc} type="video/mp4" />
+            </video>
+          </div>
+        </div>
+
+        <div className="landing-workflow-overview">
+          <div className="landing-workflow-overview__header">
+            <p className="landing-eyebrow">Full demo</p>
+            <h3>See the full workflow in motion</h3>
+            <p>
+              A short end-to-end walkthrough of creating a visual learning graph from AI conversations, branches, and relationships.
+            </p>
+          </div>
+          <div className="landing-workflow-video-card">
+            <video
+              aria-label="KnowFlow workflow demo video"
+              autoPlay
+              className="landing-workflow-video"
+              controls
+              loop
+              muted
+              playsInline
+              preload="metadata"
+            >
+              <source src="/media/knowflow-workflow-demo.mp4" type="video/mp4" />
+            </video>
+          </div>
+        </div>
+      </section>
+
+      <section className="landing-section" aria-labelledby="different">
+        <div className="landing-section__header">
+          <p className="landing-eyebrow">What makes KnowFlow different</p>
+          <h2 id="different">The graph is part of the AI learning model</h2>
+        </div>
+        <div className="landing-difference-grid">
+          {differentiators.map(([title, copy]) => (
+            <article className="landing-difference-card" key={title}>
+              <h3>{title}</h3>
+              <p>{copy}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="landing-section landing-section--stack landing-section--stack-compact" aria-labelledby="stack">
+        <div>
+          <p className="landing-eyebrow">Built with Codex</p>
+          <p id="stack">Built with Codex using React, TypeScript, React Flow, NestJS, Prisma, PostgreSQL, and OpenAI.</p>
         </div>
       </section>
 
@@ -253,9 +341,11 @@ function KnowFlowCanvas() {
   const [projectDescriptionDraft, setProjectDescriptionDraft] = useState('');
   const [graphTitleDraft, setGraphTitleDraft] = useState('');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(() => new Set());
   const [maximizedNodeId, setMaximizedNodeId] = useState<string | null>(null);
   const [canvasViewportSize, setCanvasViewportSize] = useState({ height: 0, width: 0 });
   const [pendingDeleteNodeIds, setPendingDeleteNodeIds] = useState<string[]>([]);
+  const [pendingDeleteGraphId, setPendingDeleteGraphId] = useState<string | null>(null);
   const [pendingFocusNodeId, setPendingFocusNodeId] = useState<string | null>(null);
   const [visibleBranchHighlightIdsByNodeId, setVisibleBranchHighlightIdsByNodeId] = useState<
     Record<string, string[]>
@@ -272,6 +362,7 @@ function KnowFlowCanvas() {
   const isNodeDraggingRef = useRef(false);
   const manualConnectionStartedRef = useRef(false);
   const manualConnectionCompletedRef = useRef(false);
+  const hasLoadedInitialBundleRef = useRef(false);
   const lastAutoFitGraphIdRef = useRef<string | null>(null);
   const canvasFrameRef = useRef<HTMLElement>(null);
 
@@ -301,6 +392,7 @@ function KnowFlowCanvas() {
 
   const clearCanvasFocus = useCallback(() => {
     setSelectedNodeId(null);
+    setExpandedNodeIds(new Set());
     setMaximizedNodeId(null);
     setPendingBranchView(null);
     setPendingFocusNodeId(null);
@@ -331,6 +423,10 @@ function KnowFlowCanvas() {
   }, [workspaceSelection]);
 
   useEffect(() => {
+    if (hasLoadedInitialBundleRef.current) {
+      return;
+    }
+    hasLoadedInitialBundleRef.current = true;
     void refresh();
   }, [refresh]);
 
@@ -370,6 +466,16 @@ function KnowFlowCanvas() {
     if (selectedNodeId && bundle && !bundle.nodes.some((node) => node.id === selectedNodeId)) {
       setSelectedNodeId(null);
     }
+
+    if (bundle) {
+      const nodeIds = new Set(bundle.nodes.map((node) => node.id));
+      setExpandedNodeIds((currentExpandedNodeIds) => {
+        const nextExpandedNodeIds = new Set(
+          [...currentExpandedNodeIds].filter((nodeId) => nodeIds.has(nodeId)),
+        );
+        return nextExpandedNodeIds.size === currentExpandedNodeIds.size ? currentExpandedNodeIds : nextExpandedNodeIds;
+      });
+    }
   }, [bundle, selectedNodeId]);
 
   useEffect(() => {
@@ -390,8 +496,9 @@ function KnowFlowCanvas() {
       clearCanvasFocus();
       setWorkspaceSelection(nextSelection);
       persistWorkspaceSelection(nextSelection);
+      void refresh(nextSelection);
     },
-    [clearCanvasFocus],
+    [clearCanvasFocus, refresh],
   );
 
   const onWorkspaceGraphChanged = useCallback(
@@ -407,8 +514,9 @@ function KnowFlowCanvas() {
       clearCanvasFocus();
       setWorkspaceSelection(nextSelection);
       persistWorkspaceSelection(nextSelection);
+      void refresh(nextSelection);
     },
-    [bundle, clearCanvasFocus],
+    [bundle, clearCanvasFocus, refresh],
   );
 
   const onCreateProject = useCallback(async () => {
@@ -454,6 +562,39 @@ function KnowFlowCanvas() {
       setIsSaving(false);
     }
   }, [bundle, clearCanvasFocus, refresh]);
+
+  const onDeleteGraphRequested = useCallback(() => {
+    if (!bundle) {
+      return;
+    }
+
+    setPendingDeleteGraphId(bundle.activeGraph.id);
+  }, [bundle]);
+
+  const onConfirmGraphDelete = useCallback(async () => {
+    if (!bundle || !pendingDeleteGraphId) {
+      return;
+    }
+
+    const deletedGraphId = pendingDeleteGraphId;
+    const remainingGraphs = bundle.graphs.filter((graph) => graph.id !== deletedGraphId);
+
+    setPendingDeleteGraphId(null);
+    setIsSaving(true);
+    setError(null);
+    try {
+      await deleteGraph(deletedGraphId);
+      clearCanvasFocus();
+      await refresh({
+        graphId: remainingGraphs[0]?.id ?? null,
+        projectId: bundle.activeProject.id,
+      });
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : 'Unable to delete graph');
+    } finally {
+      setIsSaving(false);
+    }
+  }, [bundle, clearCanvasFocus, pendingDeleteGraphId, refresh]);
 
   const saveProjectTitle = useCallback(async () => {
     if (!bundle) {
@@ -664,6 +805,7 @@ function KnowFlowCanvas() {
           : currentBundle,
       );
       setSelectedNodeId(node.id);
+      setPendingFocusNodeId(node.id);
     } catch (createError) {
       setError(createError instanceof Error ? createError.message : 'Unable to create node');
     } finally {
@@ -679,9 +821,11 @@ function KnowFlowCanvas() {
           [sourceNodeId]: [sourceHighlightId],
         }));
       }
+      setExpandedNodeIds((currentExpandedNodeIds) => new Set(currentExpandedNodeIds).add(sourceNodeId));
       await refresh();
-      setSelectedNodeId(sourceNodeId);
-      setPendingBranchView({ childNodeId, sourceNodeId });
+      setSelectedNodeId(childNodeId);
+      setPendingBranchView(null);
+      setPendingFocusNodeId(childNodeId);
     },
     [refresh],
   );
@@ -849,9 +993,11 @@ function KnowFlowCanvas() {
           onNodeMaximizeToggled,
         },
         selectedNodeId,
+        expandedNodeIds,
         highlightRevealRequest,
         maximizedNodeId,
         canvasViewportSize,
+        visibleBranchHighlightIdsByNodeId,
       ),
     );
   }, [
@@ -866,10 +1012,12 @@ function KnowFlowCanvas() {
     onNodeResizeEnded,
     onNodeMaximizeToggled,
     onVisibleBranchHighlightsChanged,
+    expandedNodeIds,
     highlightRevealRequest,
     maximizedNodeId,
     selectedNodeId,
     setNodes,
+    visibleBranchHighlightIdsByNodeId,
   ]);
 
   useEffect(() => {
@@ -965,7 +1113,7 @@ function KnowFlowCanvas() {
   const onConnectEnd = useCallback<OnConnectEnd>(() => {
     window.setTimeout(() => {
       if (manualConnectionStartedRef.current && !manualConnectionCompletedRef.current) {
-        setError('Drop on another node side handle to create a manual relationship edge.');
+        setError('Drop on another node edge handle to create a manual link.');
       }
       manualConnectionStartedRef.current = false;
       manualConnectionCompletedRef.current = false;
@@ -979,11 +1127,11 @@ function KnowFlowCanvas() {
         return;
       }
       if (connection.source === connection.target) {
-        setError('Manual relationship edges need two different nodes.');
+        setError('Manual links need two different nodes.');
         return;
       }
       if (!isManualHandleId(connection.sourceHandle) || !isManualHandleId(connection.targetHandle)) {
-        setError('Create manual relationship edges from node side handles.');
+        setError('Start and end manual links on node edge handles.');
         return;
       }
 
@@ -1051,15 +1199,18 @@ function KnowFlowCanvas() {
               placeholder={projectTitle}
               value={projectTitleDraft}
             />
-            <button
-              className="secondary-button"
-              disabled={isSaving || isLoading}
-              onClick={() => void onCreateProject()}
-              type="button"
-            >
-              <Plus size={15} />
-              Project
-            </button>
+            <div className="workspace-manager__button-group">
+              <button
+                className="secondary-button"
+                disabled={isSaving || isLoading}
+                onClick={() => void onCreateProject()}
+                type="button"
+              >
+                <Plus size={15} />
+                Project
+              </button>
+              <span className="workspace-manager__action-spacer" aria-hidden="true" />
+            </div>
           </div>
           <div className="workspace-manager__row">
             <span className="workspace-manager__label">Graph</span>
@@ -1086,15 +1237,27 @@ function KnowFlowCanvas() {
               placeholder={graphTitle}
               value={graphTitleDraft}
             />
-            <button
-              className="secondary-button"
-              disabled={!bundle || isSaving || isLoading}
-              onClick={() => void onCreateGraph()}
-              type="button"
-            >
-              <Plus size={15} />
-              Graph
-            </button>
+            <div className="workspace-manager__button-group">
+              <button
+                className="secondary-button"
+                disabled={!bundle || isSaving || isLoading}
+                onClick={() => void onCreateGraph()}
+                type="button"
+              >
+                <Plus size={15} />
+                Graph
+              </button>
+              <button
+                aria-label={`Delete graph ${graphTitle}`}
+                className="icon-button icon-button--danger icon-button--compact"
+                disabled={!bundle || isSaving || isLoading}
+                onClick={onDeleteGraphRequested}
+                title="Delete current graph"
+                type="button"
+              >
+                <Trash2 size={15} />
+              </button>
+            </div>
           </div>
           <div className="workspace-manager__row workspace-manager__row--description">
             <span className="workspace-manager__label">Details</span>
@@ -1108,22 +1271,24 @@ function KnowFlowCanvas() {
               placeholder="Project description"
               value={projectDescriptionDraft}
             />
+            <div className="workspace-manager__meta" aria-label="Workspace status">
+              {aiRunDefaults ? (
+                <span className="ai-status-pill" title={`Backend AI defaults: ${aiRunDefaults.provider} / ${aiRunDefaults.model}`}>
+                  {aiRunDefaults.provider} / {aiRunDefaults.model}
+                </span>
+              ) : null}
+              <span className="status-pill">{statusText}</span>
+            </div>
+            <div className="topbar__actions topbar__actions--inline">
+              <button aria-label="Refresh graph" className="icon-button" onClick={() => void refresh()} type="button">
+                <RefreshCw size={18} />
+              </button>
+              <button className="primary-button" disabled={!bundle || isSaving} onClick={onCreateNode} type="button">
+                <Plus size={18} />
+                Node
+              </button>
+            </div>
           </div>
-        </div>
-        <div className="topbar__actions">
-          {aiRunDefaults ? (
-            <span className="ai-status-pill" title={`Backend AI defaults: ${aiRunDefaults.provider} / ${aiRunDefaults.model}`}>
-              AI: {aiRunDefaults.provider} / {aiRunDefaults.model}
-            </span>
-          ) : null}
-          <span className="status-pill">{statusText}</span>
-          <button aria-label="Refresh graph" className="icon-button" onClick={() => void refresh()} type="button">
-            <RefreshCw size={18} />
-          </button>
-          <button className="primary-button" disabled={!bundle || isSaving} onClick={onCreateNode} type="button">
-            <Plus size={18} />
-            Node
-          </button>
         </div>
       </header>
 
@@ -1157,6 +1322,7 @@ function KnowFlowCanvas() {
             nodeClickDistance={5}
             onNodeClick={(_, node) => {
               if (!isNodeDraggingRef.current) {
+                setExpandedNodeIds(new Set());
                 setSelectedNodeId(node.id);
                 setPendingFocusNodeId(node.id);
               }
@@ -1173,7 +1339,7 @@ function KnowFlowCanvas() {
             onPaneClick={clearCanvasFocus}
           >
             <Background />
-            <MiniMap pannable zoomable />
+            {maximizedNodeId ? null : <MiniMap pannable zoomable />}
             <Controls />
           </ReactFlow>
         </section>
@@ -1187,7 +1353,68 @@ function KnowFlowCanvas() {
           onConfirm={() => void onConfirmNodeDelete()}
         />
       ) : null}
+      {pendingDeleteGraphId && bundle ? (
+        <DeleteGraphConfirmDialog
+          graphTitle={bundle.activeGraph.title}
+          isDeleting={isSaving}
+          isLastGraph={bundle.graphs.length <= 1}
+          onCancel={() => setPendingDeleteGraphId(null)}
+          onConfirm={() => void onConfirmGraphDelete()}
+        />
+      ) : null}
     </main>
+  );
+}
+
+function DeleteGraphConfirmDialog({
+  graphTitle,
+  isDeleting,
+  isLastGraph,
+  onCancel,
+  onConfirm,
+}: {
+  graphTitle: string;
+  isDeleting: boolean;
+  isLastGraph: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const description = isLastGraph
+    ? `This will delete "${graphTitle}" and all of its nodes and edges. Because it is the last graph in this project, KnowFlow will create a blank replacement graph afterward.`
+    : `This will delete "${graphTitle}" and all of its nodes, edges, messages, highlights, and runs.`;
+
+  return (
+    <div className="confirm-layer" role="presentation" onMouseDown={onCancel}>
+      <section
+        aria-describedby="delete-graph-confirm-description"
+        aria-modal="true"
+        className="confirm-dialog"
+        onMouseDown={(event) => event.stopPropagation()}
+        role="dialog"
+      >
+        <span className="confirm-dialog__icon" aria-hidden="true">
+          <AlertTriangle size={20} />
+        </span>
+        <div className="confirm-dialog__copy">
+          <h2>Delete graph?</h2>
+          <p id="delete-graph-confirm-description">{description}</p>
+        </div>
+        <div className="confirm-dialog__actions">
+          <button className="confirm-dialog__button" disabled={isDeleting} onClick={onCancel} type="button">
+            Cancel
+          </button>
+          <button
+            className="confirm-dialog__button confirm-dialog__button--danger"
+            disabled={isDeleting}
+            onClick={onConfirm}
+            type="button"
+          >
+            <Trash2 size={15} />
+            Delete graph
+          </button>
+        </div>
+      </section>
+    </div>
   );
 }
 

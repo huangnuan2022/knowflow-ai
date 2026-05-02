@@ -21,10 +21,17 @@ export type BranchTargetPreview = {
   title: string;
 };
 
+export type BranchLearningPathItem = {
+  label: string;
+  nodeId: string;
+};
+
 export type BranchContextPreview = {
   color?: BranchColor;
   highlightId?: string;
+  learningPath: BranchLearningPathItem[];
   sourceNodeId: string;
+  sourceText: string;
   text: string;
 };
 
@@ -141,37 +148,47 @@ export function toReactFlowNodes(
   bundle?: Pick<GraphBundle, 'edges' | 'highlightsByMessageId' | 'messagesByNodeId'>,
   actions: ConversationNodeActions = {},
   selectedNodeId?: string | null,
+  expandedNodeIds: ReadonlySet<string> = new Set(),
   revealHighlightRequest?: { highlightId: string; nodeId: string; requestId: number } | null,
   maximizedNodeId?: string | null,
   canvasViewportSize: { height: number; width: number } = { height: 0, width: 0 },
+  visibleBranchHighlightIdsByNodeId: Record<string, string[]> = {},
 ): ConversationFlowNode[] {
   const branchTargetsByHighlightId = groupBranchTargetsByHighlightId(bundle?.edges ?? [], nodes);
   const branchHighlightsByNodeId = groupBranchHighlightsByNodeId(bundle?.edges ?? [], branchTargetsByHighlightId);
+  const activeBranchTargetNodeIds = findActiveBranchTargetNodeIds(
+    bundle?.edges ?? [],
+    selectedNodeId,
+    visibleBranchHighlightIdsByNodeId,
+  );
 
   return nodes.map((node, index) => {
     const isSelected = node.id === selectedNodeId;
+    const isPinnedExpanded = expandedNodeIds.has(node.id);
+    const isExpanded = isSelected || isPinnedExpanded;
     const isMaximized = isSelected && node.id === maximizedNodeId;
+    const isActiveBranchTarget = activeBranchTargetNodeIds.has(node.id);
     const branchHighlights = branchHighlightsByNodeId[node.id] ?? [];
     const collapsedHeight = collapsedNodeAutoHeight(node, branchHighlights.length);
     const maximizedSize = maximizedNodeSize(canvasViewportSize);
     const expandedMinWidth = isMaximized ? maximizedSize.width : 760;
     const expandedMinHeight = isMaximized ? maximizedSize.height : 640;
     const width = Math.max(
-      numberOrDefault(node.layout?.width, isSelected ? expandedMinWidth : 340),
-      isSelected ? expandedMinWidth : 300,
+      numberOrDefault(node.layout?.width, isExpanded ? expandedMinWidth : 340),
+      isExpanded ? expandedMinWidth : 300,
     );
     const height = Math.max(
-      numberOrDefault(node.layout?.height, isSelected ? expandedMinHeight : collapsedHeight),
-      isSelected ? expandedMinHeight : collapsedHeight,
+      numberOrDefault(node.layout?.height, isExpanded ? expandedMinHeight : collapsedHeight),
+      isExpanded ? expandedMinHeight : collapsedHeight,
     );
 
     return {
       data: {
-        branchContext: findInboundBranchContext(bundle?.edges, node.id),
+        branchContext: findInboundBranchContext(bundle?.edges, nodes, node.id),
         branchHighlights,
         branchTargetsByHighlightId,
         highlightsByMessageId: bundle?.highlightsByMessageId ?? {},
-        isExpanded: isSelected,
+        isExpanded,
         isMaximized,
         layout: {
           height,
@@ -209,7 +226,7 @@ export function toReactFlowNodes(
         width,
       },
       type: 'conversation',
-      zIndex: isMaximized ? 1400 : isSelected ? 1000 : 100,
+      zIndex: isActiveBranchTarget ? 1500 : isMaximized ? 1400 : isSelected ? 1000 : isPinnedExpanded ? 850 : 100,
     };
   });
 }
@@ -230,6 +247,7 @@ export function toReactFlowEdges(
       hasSelectedNode && (edge.sourceNodeId === selectedNodeId || edge.targetNodeId === selectedNodeId);
     const isDimmed = hasSelectedNode && !isRelatedToSelected;
     const isFocused = hasSelectedNode && isRelatedToSelected;
+    const isFocusedSourceBranch = isBranchEdge && selectedNodeId === edge.sourceNodeId;
     const edgeSides = getManualEdgeHandleSides(edge, nodesById);
     const branchColor = isBranchEdge ? colorForHighlightId(edge.sourceHighlightId ?? edge.id) : undefined;
 
@@ -270,7 +288,7 @@ export function toReactFlowEdges(
       target: edge.targetNodeId,
       targetHandle: isBranchEdge ? branchTargetHandleIdForSide(edgeSides.target) : manualNodeHandleId('target', edgeSides.target),
       type: 'editable',
-      zIndex: edgeZIndex(edge.type, isDimmed, isFocused),
+      zIndex: edgeZIndex(edge.type, isDimmed, isFocused, isFocusedSourceBranch),
     };
   });
 }
@@ -287,9 +305,13 @@ function getEdgeAvoidRects(edge: DomainEdge, nodesById: Map<string, DomainNode>)
     }));
 }
 
-function edgeZIndex(edgeType: EdgeType, isDimmed: boolean, isFocused: boolean) {
+function edgeZIndex(edgeType: EdgeType, isDimmed: boolean, isFocused: boolean, isFocusedSourceBranch: boolean) {
   if (isDimmed) {
     return 1;
+  }
+
+  if (isFocusedSourceBranch) {
+    return 1600;
   }
 
   if (isFocused && edgeType === 'BRANCH') {
@@ -310,6 +332,31 @@ function shouldRenderEdge(edge: DomainEdge, visibleBranchHighlightIdsByNodeId: R
 
   const visibleHighlightIds = visibleBranchHighlightIdsByNodeId[edge.sourceNodeId];
   return !visibleHighlightIds || visibleHighlightIds.includes(edge.sourceHighlightId);
+}
+
+function findActiveBranchTargetNodeIds(
+  edges: DomainEdge[],
+  selectedNodeId?: string | null,
+  visibleBranchHighlightIdsByNodeId: Record<string, string[]> = {},
+) {
+  const activeHighlightIds = selectedNodeId ? visibleBranchHighlightIdsByNodeId[selectedNodeId] : undefined;
+  if (!selectedNodeId || !activeHighlightIds?.length) {
+    return new Set<string>();
+  }
+
+  const activeHighlightIdSet = new Set(activeHighlightIds);
+  return edges.reduce<Set<string>>((targetNodeIds, edge) => {
+    if (
+      edge.type === 'BRANCH' &&
+      edge.sourceNodeId === selectedNodeId &&
+      edge.sourceHighlightId &&
+      activeHighlightIdSet.has(edge.sourceHighlightId)
+    ) {
+      targetNodeIds.add(edge.targetNodeId);
+    }
+
+    return targetNodeIds;
+  }, new Set<string>());
 }
 
 function groupBranchHighlightsByNodeId(
@@ -433,18 +480,51 @@ function maximizedNodeSize(canvasViewportSize: { height: number; width: number }
   };
 }
 
-function findInboundBranchContext(edges: DomainEdge[] | undefined, nodeId: string) {
+function findInboundBranchContext(edges: DomainEdge[] | undefined, nodes: DomainNode[], nodeId: string) {
   const inboundBranch = edges?.find((edge) => edge.targetNodeId === nodeId && edge.type === 'BRANCH');
   if (!inboundBranch?.label) {
     return undefined;
   }
 
+  const sourceText = inboundBranch.label;
+
   return {
     color: inboundBranch.sourceHighlightId ? colorForHighlightId(inboundBranch.sourceHighlightId) : undefined,
     highlightId: inboundBranch.sourceHighlightId ?? undefined,
+    learningPath: buildBranchLearningPath(edges ?? [], nodes, nodeId),
     sourceNodeId: inboundBranch.sourceNodeId,
-    text: inboundBranch.label,
+    sourceText,
+    text: sourceText,
   };
+}
+
+function buildBranchLearningPath(edges: DomainEdge[], nodes: DomainNode[], nodeId: string) {
+  const nodeTitlesById = new Map(nodes.map((node) => [node.id, node.title]));
+  const inboundBranchesByTargetId = new Map(
+    edges
+      .filter((edge) => edge.type === 'BRANCH' && edge.label)
+      .map((edge) => [edge.targetNodeId, edge]),
+  );
+  const branchPathItems: BranchLearningPathItem[] = [];
+  const visitedNodeIds = new Set<string>();
+  let currentNodeId = nodeId;
+
+  while (!visitedNodeIds.has(currentNodeId)) {
+    visitedNodeIds.add(currentNodeId);
+    const inboundBranch = inboundBranchesByTargetId.get(currentNodeId);
+    if (!inboundBranch?.label) {
+      break;
+    }
+
+    branchPathItems.unshift({
+      label: inboundBranch.label,
+      nodeId: currentNodeId,
+    });
+    currentNodeId = inboundBranch.sourceNodeId;
+  }
+
+  const rootTitle = nodeTitlesById.get(currentNodeId);
+  return rootTitle ? [{ label: rootTitle, nodeId: currentNodeId }, ...branchPathItems] : branchPathItems;
 }
 
 export function colorForHighlightId(highlightId: string): BranchColor {

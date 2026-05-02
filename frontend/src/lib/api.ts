@@ -23,6 +23,17 @@ const CONTEXT_POLICY_VERSION = 'current-node-selected-ancestor-v0';
 
 type RequestBody = Record<string, unknown>;
 
+class ApiClientError extends Error {
+  constructor(
+    message: string,
+    readonly status?: number,
+    readonly path?: string,
+  ) {
+    super(message);
+    this.name = 'ApiClientError';
+  }
+}
+
 export type WorkspaceSelection = {
   graphId?: string | null;
   projectId?: string | null;
@@ -103,6 +114,10 @@ export async function createGraph(input: { projectId: string; title: string }) {
 
 export async function updateGraph(graphId: string, input: { title?: string }) {
   return patch<Graph>(`/graphs/${graphId}`, input);
+}
+
+export async function deleteGraph(graphId: string) {
+  return del<Graph>(`/graphs/${graphId}`);
 }
 
 export async function createNode(input: {
@@ -252,19 +267,55 @@ async function del<T>(path: string) {
 }
 
 async function request<T>(path: string, options: { body?: RequestBody; method?: string } = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    body: options.body ? JSON.stringify(options.body) : undefined,
-    headers: options.body ? { 'content-type': 'application/json' } : undefined,
-    method: options.method ?? 'GET',
-  });
+  const url = `${API_BASE_URL}${path}`;
+  let response: Response;
+
+  try {
+    response = await fetch(url, {
+      body: options.body ? JSON.stringify(options.body) : undefined,
+      headers: options.body ? { 'content-type': 'application/json' } : undefined,
+      method: options.method ?? 'GET',
+    });
+  } catch {
+    throw new ApiClientError('Backend unavailable. Check the API deployment or try refreshing.', undefined, path);
+  }
 
   const text = await response.text();
-  const body = text ? JSON.parse(text) : null;
+  const body = parseResponseBody(text);
 
   if (!response.ok) {
-    const message = body?.message ?? `${response.status} ${response.statusText}`;
-    throw new Error(Array.isArray(message) ? message.join(', ') : message);
+    const message = responseErrorMessage(body) ?? `${response.status} ${response.statusText}`;
+    throw new ApiClientError(Array.isArray(message) ? message.join(', ') : message, response.status, path);
   }
 
   return body as T;
+}
+
+function parseResponseBody(text: string) {
+  if (!text) {
+    return null;
+  }
+
+  try {
+    return JSON.parse(text) as unknown;
+  } catch {
+    return null;
+  }
+}
+
+function responseErrorMessage(body: unknown) {
+  if (!body || typeof body !== 'object' || !('message' in body)) {
+    return null;
+  }
+
+  const message = (body as { message?: unknown }).message;
+  if (typeof message === 'string') {
+    return message;
+  }
+
+  if (Array.isArray(message) && message.every((item) => typeof item === 'string')) {
+    return message;
+  }
+
+  return null;
 }
