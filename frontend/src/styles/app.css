@@ -444,12 +444,37 @@ button {
   width: 100%;
 }
 
+.landing-workflow-overview {
+  display: grid;
+  gap: 18px;
+  margin-top: 58px;
+}
+
+.landing-workflow-overview__header {
+  max-width: 720px;
+}
+
+.landing-workflow-overview__header h3 {
+  color: #0f172a;
+  font-size: clamp(28px, 3vw, 42px);
+  letter-spacing: 0;
+  line-height: 1.08;
+  margin: 0;
+}
+
+.landing-workflow-overview__header p:not(.landing-eyebrow) {
+  color: #475569;
+  font-size: 17px;
+  line-height: 1.65;
+  margin: 14px 0 0;
+}
+
 .landing-feature-walkthrough {
   align-items: stretch;
   display: grid;
-  gap: 18px;
-  grid-template-columns: minmax(280px, 0.78fr) minmax(0, 1.22fr);
-  margin-top: 24px;
+  gap: 26px;
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr);
+  margin-top: 28px;
 }
 
 .landing-feature-tabs {
@@ -494,16 +519,16 @@ button {
 }
 
 .landing-feature-tab {
-  align-items: flex-start;
+  align-items: center;
   background: #ffffff;
   border: 1px solid #dbe3ee;
   border-radius: 8px;
   color: #334155;
   cursor: pointer;
   display: flex;
-  gap: 12px;
-  min-height: 96px;
-  padding: 15px;
+  gap: 10px;
+  min-height: 58px;
+  padding: 11px 12px;
   text-align: left;
   transition:
     background 160ms ease,
@@ -549,20 +574,14 @@ button {
 
 .landing-feature-tab__text {
   display: grid;
-  gap: 6px;
+  gap: 0;
   min-width: 0;
 }
 
 .landing-feature-tab__text strong {
   color: #0f172a;
-  font-size: 16px;
-  line-height: 1.22;
-}
-
-.landing-feature-tab__text span {
-  color: #475569;
   font-size: 14px;
-  line-height: 1.45;
+  line-height: 1.24;
 }
 
 .landing-feature-video-panel {
@@ -739,7 +758,7 @@ button {
   }
 
   .landing-feature-tab {
-    flex: 0 0 min(320px, 86vw);
+    flex: 0 0 min(250px, 76vw);
     scroll-snap-align: start;
   }
 }

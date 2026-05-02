@@ -217,21 +217,6 @@ function LandingPage() {
           </p>
         </div>
 
-        <div className="landing-workflow-video-card">
-          <video
-            aria-label="KnowFlow workflow demo video"
-            autoPlay
-            className="landing-workflow-video"
-            controls
-            loop
-            muted
-            playsInline
-            preload="metadata"
-          >
-            <source src="/media/knowflow-workflow-demo.mp4" type="video/mp4" />
-          </video>
-        </div>
-
         <div className="landing-feature-walkthrough" aria-label="KnowFlow feature walkthrough">
           <div className="landing-feature-tabs" role="tablist" aria-label="Feature walkthrough steps">
             {workflowSteps.map((step, index) => {
@@ -251,7 +236,6 @@ function LandingPage() {
                   <span className="landing-feature-tab__index">{index + 1}</span>
                   <span className="landing-feature-tab__text">
                     <strong>{step.title}</strong>
-                    <span>{step.copy}</span>
                   </span>
                 </button>
               );
@@ -283,6 +267,30 @@ function LandingPage() {
               preload="metadata"
             >
               <source src={activeWorkflowStep.videoSrc} type="video/mp4" />
+            </video>
+          </div>
+        </div>
+
+        <div className="landing-workflow-overview">
+          <div className="landing-workflow-overview__header">
+            <p className="landing-eyebrow">Full demo</p>
+            <h3>See the full workflow in motion</h3>
+            <p>
+              A short end-to-end walkthrough of creating a visual learning graph from AI conversations, branches, and relationships.
+            </p>
+          </div>
+          <div className="landing-workflow-video-card">
+            <video
+              aria-label="KnowFlow workflow demo video"
+              autoPlay
+              className="landing-workflow-video"
+              controls
+              loop
+              muted
+              playsInline
+              preload="metadata"
+            >
+              <source src="/media/knowflow-workflow-demo.mp4" type="video/mp4" />
             </video>
           </div>
         </div>
@@ -1336,7 +1344,7 @@ function KnowFlowCanvas() {
             onPaneClick={clearCanvasFocus}
           >
             <Background />
-            <MiniMap pannable zoomable />
+            {maximizedNodeId ? null : <MiniMap pannable zoomable />}
             <Controls />
           </ReactFlow>
         </section>
