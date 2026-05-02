@@ -427,7 +427,7 @@ button {
 .landing-workflow-overview {
   display: grid;
   gap: 18px;
-  margin-top: 88px;
+  margin-top: 146px;
 }
 
 .landing-workflow-overview__header {
@@ -458,9 +458,14 @@ button {
 }
 
 .landing-feature-tabs {
+  background: linear-gradient(180deg, #ffffff, #f8fafc);
+  border: 1px solid #dbe3ee;
+  border-radius: 10px;
+  box-shadow: 0 18px 36px rgb(15 23 42 / 0.08);
   display: grid;
-  gap: 11px;
-  grid-template-rows: repeat(5, minmax(70px, 1fr));
+  gap: 8px;
+  grid-template-rows: repeat(5, minmax(64px, 1fr));
+  padding: 8px;
 }
 
 .landing-feature-tab,
@@ -500,15 +505,17 @@ button {
 
 .landing-feature-tab {
   align-items: center;
-  background: #ffffff;
-  border: 1px solid #dbe3ee;
-  border-radius: 8px;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 7px;
   color: #334155;
   cursor: pointer;
   display: flex;
   gap: 9px;
   min-height: 0;
-  padding: 12px;
+  overflow: hidden;
+  padding: 10px 11px 10px 12px;
+  position: relative;
   text-align: left;
   transition:
     background 160ms ease,
@@ -518,18 +525,34 @@ button {
   width: 100%;
 }
 
+.landing-feature-tab::before {
+  background: transparent;
+  border-radius: 999px;
+  bottom: 12px;
+  content: "";
+  left: 0;
+  position: absolute;
+  top: 12px;
+  transition: background 160ms ease;
+  width: 3px;
+}
+
 .landing-feature-tab:hover,
 .landing-feature-tab:focus {
-  border-color: var(--feature-accent);
-  box-shadow: 0 12px 30px rgb(15 23 42 / 0.1);
+  background: #ffffff;
+  border-color: color-mix(in srgb, var(--feature-accent) 28%, #dbe3ee);
+  box-shadow: 0 10px 24px rgb(15 23 42 / 0.08);
   outline: none;
-  transform: translateY(-1px);
 }
 
 .landing-feature-tab.is-active {
-  background: var(--feature-soft);
-  border-color: var(--feature-accent);
-  box-shadow: 0 14px 34px rgb(15 23 42 / 0.12);
+  background: linear-gradient(90deg, var(--feature-soft), #ffffff 82%);
+  border-color: color-mix(in srgb, var(--feature-accent) 58%, #dbe3ee);
+  box-shadow: 0 12px 26px rgb(15 23 42 / 0.1);
+}
+
+.landing-feature-tab.is-active::before {
+  background: var(--feature-accent);
 }
 
 .landing-feature-tab__index {
@@ -562,6 +585,10 @@ button {
   color: #0f172a;
   font-size: 13px;
   line-height: 1.26;
+}
+
+.landing-feature-tab.is-active .landing-feature-tab__text strong {
+  color: var(--feature-ink);
 }
 
 .landing-feature-video-panel {
@@ -731,6 +758,10 @@ button {
   }
 
   .landing-feature-tabs {
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
     display: flex;
     flex-direction: row;
     gap: 10px;
