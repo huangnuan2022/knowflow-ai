@@ -103,34 +103,36 @@ function LandingPage() {
     {
       title: 'Ask inside a visual workspace',
       copy: 'Start or continue a conversation inside any node.',
-      label: 'Node conversation',
       tone: 'blue',
+      videoSrc: '/media/workflow-ask-node.mp4',
     },
     {
       title: 'Branch from what you want to explore',
       copy: 'Select text from an AI answer and create a focused child conversation with the source context preserved.',
-      label: 'Contextual branch',
       tone: 'pink',
+      videoSrc: '/media/workflow-branch-highlight.mp4',
     },
     {
       title: 'Navigate sources and branches',
       copy: 'Open a branch point to jump to its child branches, return to the original source highlight, or follow the learning path across ancestors.',
-      label: 'Learning path',
       tone: 'violet',
+      videoSrc: '/media/workflow-navigate-sources.mp4',
     },
     {
       title: 'Map relationships between existing nodes',
       copy: 'Connect existing conversation nodes and label the relationship when two ideas belong together.',
-      label: 'Relationship edge',
       tone: 'green',
+      videoSrc: '/media/workflow-map-relationships.mp4',
     },
     {
       title: 'Review how concepts relate across the graph',
       copy: 'See how understanding expands from the original question into connected subtopics, branches, and relationships.',
-      label: 'Knowledge flow',
       tone: 'amber',
+      videoSrc: '/media/workflow-review-graph.mp4',
     },
   ];
+  const [activeWorkflowStepIndex, setActiveWorkflowStepIndex] = useState(0);
+  const activeWorkflowStep = workflowSteps[activeWorkflowStepIndex];
 
   const differentiators = [
     [
@@ -230,19 +232,59 @@ function LandingPage() {
           </video>
         </div>
 
-        <div className="landing-workflow-grid">
-          {workflowSteps.map((step, index) => (
-            <article className="landing-workflow-step" key={step.title}>
-              <span>{index + 1}</span>
-              <h3>{step.title}</h3>
-              <p>{step.copy}</p>
-              <div className={`landing-feature-placeholder landing-feature-placeholder--${step.tone}`} aria-hidden="true">
-                <div className="landing-feature-placeholder__node" />
-                <div className="landing-feature-placeholder__line" />
-                <div className="landing-feature-placeholder__chip">{step.label}</div>
+        <div className="landing-feature-walkthrough" aria-label="KnowFlow feature walkthrough">
+          <div className="landing-feature-tabs" role="tablist" aria-label="Feature walkthrough steps">
+            {workflowSteps.map((step, index) => {
+              const isActive = index === activeWorkflowStepIndex;
+
+              return (
+                <button
+                  aria-controls="landing-feature-video-panel"
+                  aria-selected={isActive}
+                  className={`landing-feature-tab landing-feature-tab--${step.tone}${isActive ? ' is-active' : ''}`}
+                  id={`landing-feature-tab-${index}`}
+                  key={step.title}
+                  onClick={() => setActiveWorkflowStepIndex(index)}
+                  role="tab"
+                  type="button"
+                >
+                  <span className="landing-feature-tab__index">{index + 1}</span>
+                  <span className="landing-feature-tab__text">
+                    <strong>{step.title}</strong>
+                    <span>{step.copy}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          <div
+            aria-labelledby={`landing-feature-tab-${activeWorkflowStepIndex}`}
+            className={`landing-feature-video-panel landing-feature-video-panel--${activeWorkflowStep.tone}`}
+            id="landing-feature-video-panel"
+            role="tabpanel"
+          >
+            <div className="landing-feature-video-panel__header">
+              <span>{String(activeWorkflowStepIndex + 1).padStart(2, '0')}</span>
+              <div>
+                <h3>{activeWorkflowStep.title}</h3>
+                <p>{activeWorkflowStep.copy}</p>
               </div>
-            </article>
-          ))}
+            </div>
+            <video
+              aria-label={`${activeWorkflowStep.title} feature demo video`}
+              autoPlay
+              className="landing-feature-video"
+              controls
+              key={activeWorkflowStep.videoSrc}
+              loop
+              muted
+              playsInline
+              preload="metadata"
+            >
+              <source src={activeWorkflowStep.videoSrc} type="video/mp4" />
+            </video>
+          </div>
         </div>
       </section>
 
