@@ -233,6 +233,10 @@ button {
   margin: 0;
 }
 
+.landing-section--learning-map > .landing-section__header {
+  max-width: 980px;
+}
+
 .landing-section h2 {
   color: #0f172a;
   font-size: clamp(28px, 4vw, 44px);
@@ -427,11 +431,11 @@ button {
 .landing-workflow-overview {
   display: grid;
   gap: 18px;
-  margin-top: 146px;
+  margin-top: 195px;
 }
 
 .landing-workflow-overview__header {
-  max-width: 720px;
+  max-width: 940px;
 }
 
 .landing-workflow-overview__header h3 {
@@ -778,7 +782,7 @@ button {
   }
 
   .landing-workflow-overview {
-    margin-top: 64px;
+    margin-top: 84px;
   }
 }
 
