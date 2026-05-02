@@ -163,9 +163,9 @@ function LandingPage() {
         </nav>
 
         <div className="landing-hero__scene" aria-hidden="true">
-          <div className="landing-hero-node landing-hero-node--one">AI workspace</div>
-          <div className="landing-hero-node landing-hero-node--two">Knowledge flow</div>
-          <div className="landing-hero-node landing-hero-node--three">Contextual branch</div>
+          <div className="landing-hero-node landing-hero-node--one">Branch from any AI answer</div>
+          <div className="landing-hero-node landing-hero-node--two">Visual learning memory</div>
+          <div className="landing-hero-node landing-hero-node--three">Real AI workspace</div>
           <div className="landing-hero-line landing-hero-line--one" />
           <div className="landing-hero-line landing-hero-line--two" />
         </div>
@@ -176,11 +176,6 @@ function LandingPage() {
           <p className="landing-hero__subtitle">
             Ask AI inside a visual node, click or highlight a confusing concept in the answer, and branch into a focused child conversation that stays connected on the canvas.
           </p>
-          <div className="landing-proof-pills" aria-label="KnowFlow demo capabilities">
-            <span>Branch from any AI answer</span>
-            <span>Visual learning memory</span>
-            <span>Real AI workspace</span>
-          </div>
           <div className="landing-hero__actions">
             <a className="landing-button landing-button--primary" href="/app">
               Open Workspace
